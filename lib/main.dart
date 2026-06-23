@@ -1,24 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'core/router/app_router.dart';
 import 'design_system/theme/app_theme.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // POS tablet runs in landscape
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
+  ]);
   runApp(const ProviderScope(child: PosmiApp()));
 }
 
-class PosmiApp extends StatelessWidget {
+class PosmiApp extends ConsumerWidget {
   const PosmiApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(appRouterProvider);
+    return MaterialApp.router(
       title: 'PosmiFood',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
-      home: const Scaffold(
-        body: Center(child: Text('PosmiFood — Fase 0 lista')),
-      ),
+      routerConfig: router,
     );
   }
 }

@@ -13,6 +13,8 @@ class UserModel {
     required this.email,
     required this.roleName,
     required this.isActive,
+    this.stationId,
+    this.stationName,
   });
 
   final String id;
@@ -20,6 +22,8 @@ class UserModel {
   final String email;
   final String roleName;
   final bool isActive;
+  final String? stationId;
+  final String? stationName;
 
   factory UserModel.fromJson(Map<String, dynamic> json) => UserModel(
         id: json['id'] as String,
@@ -30,6 +34,9 @@ class UserModel {
             json['roleName']?.toString() ??
             '—',
         isActive: json['isActive'] as bool? ?? true,
+        stationId: json['stationId'] as String?,
+        stationName:
+            (json['station'] as Map<String, dynamic>?)?['name'] as String?,
       );
 }
 

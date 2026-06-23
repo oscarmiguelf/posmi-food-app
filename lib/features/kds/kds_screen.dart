@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/auth/current_user.dart';
 import '../../core/models/order_model.dart';
 import '../../design_system/tokens/app_colors.dart';
 import '../../design_system/tokens/app_spacing.dart';
@@ -13,14 +14,23 @@ class KdsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ordersAsync = ref.watch(kdsOrdersProvider);
-    final stationFilter = ref.watch(kdsStationFilterProvider);
+    final user = ref.watch(currentUserProvider);
+    final manualFilter = ref.watch(kdsStationFilterProvider);
+
+    // Kitchen users auto-filter to their assigned station
+    final stationFilter =
+        manualFilter ?? (user?.isKitchen == true ? user?.stationName : null);
+
+    final title = stationFilter != null
+        ? 'KDS — $stationFilter'
+        : 'KDS — Todas las estaciones';
 
     return Scaffold(
       backgroundColor: AppColors.textPrimary,
       appBar: AppBar(
         backgroundColor: AppColors.textPrimary,
         foregroundColor: AppColors.primaryContent,
-        title: const Text('KDS — Cocina'),
+        title: Text(title),
         actions: [
           PopupMenuButton<String?>(
             tooltip: 'Filtrar por estación',

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/providers/api_client_provider.dart';
 import '../../../design_system/tokens/app_colors.dart';
 import '../../../design_system/tokens/app_spacing.dart';
 import 'users_repository.dart';
@@ -11,6 +12,15 @@ final _usersProvider =
 final _rolesProvider =
     FutureProvider<List<Map<String, dynamic>>>((ref) {
   return ref.watch(usersRepositoryProvider).getRoles();
+});
+
+final _stationsListProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final dio = ref.watch(dioProvider);
+  final res = await dio.get<Map<String, dynamic>>('/stations');
+  return (res.data!['data'] as List<dynamic>)
+      .map((e) => e as Map<String, dynamic>)
+      .toList();
 });
 
 class _UsersNotifier extends AsyncNotifier<List<UserModel>> {
@@ -85,7 +95,10 @@ class UsersScreen extends ConsumerWidget {
                   ),
                 ),
                 title: Text(user.name),
-                subtitle: Text('${user.email} · ${user.roleName}'),
+                subtitle: Text(
+                  '${user.email} · ${user.roleName}'
+                  '${user.stationName != null ? ' · ${user.stationName}' : ''}',
+                ),
                 trailing: Switch(
                   value: user.isActive,
                   activeThumbColor: AppColors.success,
@@ -103,10 +116,12 @@ class UsersScreen extends ConsumerWidget {
 
   void _showCreateDialog(BuildContext context, WidgetRef ref) {
     final rolesAsync = ref.read(_rolesProvider);
+    final stationsAsync = ref.read(_stationsListProvider);
     showDialog<void>(
       context: context,
       builder: (_) => _CreateUserDialog(
         roles: rolesAsync.value ?? [],
+        stations: stationsAsync.value ?? [],
         onSave: (body) =>
             ref.read(_usersProvider.notifier).create(body),
       ),
@@ -115,9 +130,14 @@ class UsersScreen extends ConsumerWidget {
 }
 
 class _CreateUserDialog extends StatefulWidget {
-  const _CreateUserDialog({required this.roles, required this.onSave});
+  const _CreateUserDialog({
+    required this.roles,
+    required this.stations,
+    required this.onSave,
+  });
 
   final List<Map<String, dynamic>> roles;
+  final List<Map<String, dynamic>> stations;
   final void Function(Map<String, dynamic>) onSave;
 
   @override
@@ -130,6 +150,7 @@ class _CreateUserDialogState extends State<_CreateUserDialog> {
   final _email = TextEditingController();
   final _password = TextEditingController();
   String? _roleId;
+  String? _stationId;
 
   @override
   void dispose() {
@@ -187,6 +208,30 @@ class _CreateUserDialogState extends State<_CreateUserDialog> {
                 onChanged: (v) => setState(() => _roleId = v),
                 validator: (v) => v == null ? 'Selecciona un rol' : null,
               ),
+              if (widget.stations.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.sm),
+                DropdownButtonFormField<String>(
+                  initialValue: _stationId,
+                  decoration: const InputDecoration(
+                    labelText: 'Estación (solo para rol Cocina)',
+                  ),
+                  hint: const Text('Sin estación asignada'),
+                  items: [
+                    const DropdownMenuItem(
+                      value: '',
+                      child: Text('Sin estación'),
+                    ),
+                    ...widget.stations.map(
+                      (s) => DropdownMenuItem<String>(
+                        value: s['id'] as String,
+                        child: Text(s['name'] as String? ?? ''),
+                      ),
+                    ),
+                  ],
+                  onChanged: (v) =>
+                      setState(() => _stationId = v?.isEmpty == true ? null : v),
+                ),
+              ],
             ],
           ),
         ),
@@ -203,6 +248,7 @@ class _CreateUserDialogState extends State<_CreateUserDialog> {
               'email': _email.text.trim(),
               'password': _password.text,
               'roleId': _roleId,
+              if (_stationId != null) 'stationId': _stationId,
             });
             Navigator.pop(context);
           },

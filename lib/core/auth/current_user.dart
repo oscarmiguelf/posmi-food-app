@@ -8,14 +8,19 @@ class CurrentUser {
     required this.email,
     required this.roleName,
     required this.branchIds,
+    this.stationId,
+    this.stationName,
   });
 
   final String sub;
   final String email;
   final String roleName;
   final List<String> branchIds;
+  final String? stationId;
+  final String? stationName;
 
   bool get isAdmin => roleName.toLowerCase() == 'admin';
+  bool get isKitchen => roleName.toLowerCase() == 'cocina';
   String? get branchId => branchIds.isNotEmpty ? branchIds.first : null;
 }
 
@@ -36,6 +41,8 @@ final currentUserProvider = Provider<CurrentUser?>((ref) {
               ?.map((e) => e.toString())
               .toList() ??
           [],
+      stationId: payload['stationId']?.toString(),
+      stationName: payload['stationName']?.toString(),
     );
   } catch (_) {
     return null;

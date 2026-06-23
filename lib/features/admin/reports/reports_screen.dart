@@ -37,26 +37,49 @@ final _profitabilityProvider = FutureProvider<Map<String, dynamic>>((ref) {
   return ref.watch(reportsRepositoryProvider).getProfitability();
 });
 
+final _salesByHourProvider = FutureProvider<List<dynamic>>((ref) {
+  final range = ref.watch(_dateRangeProvider);
+  return ref.watch(reportsRepositoryProvider).getSalesByHour(
+        date: _dateFormat.format(range.end),
+      );
+});
+
+final _inventoryVarianceProvider =
+    FutureProvider<Map<String, dynamic>>((ref) {
+  final range = ref.watch(_dateRangeProvider);
+  return ref.watch(reportsRepositoryProvider).getInventoryVariance(
+        from: _dateFormat.format(range.start),
+        to: _dateFormat.format(range.end),
+      );
+});
+
 class ReportsScreen extends ConsumerWidget {
   const ReportsScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return DefaultTabController(
-      length: 3,
+      length: 5,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Reportes'),
-          bottom: const TabBar(tabs: [
-            Tab(text: 'Ventas'),
-            Tab(text: 'Período'),
-            Tab(text: 'Rentabilidad'),
-          ]),
+          bottom: const TabBar(
+            isScrollable: true,
+            tabs: [
+              Tab(text: 'Ventas'),
+              Tab(text: 'Período'),
+              Tab(text: 'Rentabilidad'),
+              Tab(text: 'Horas pico'),
+              Tab(text: 'Inventario'),
+            ],
+          ),
         ),
         body: TabBarView(children: [
           _SalesTab(),
           _PeriodTab(),
           _ProfitabilityTab(),
+          _SalesByHourTab(),
+          _InventoryVarianceTab(),
         ]),
       ),
     );
@@ -267,6 +290,182 @@ class _ProfitabilityTab extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _SalesByHourTab extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(_salesByHourProvider);
+    return Column(
+      children: [
+        const _DateRangeBar(),
+        Expanded(
+          child: async.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (hours) {
+              if (hours.isEmpty) {
+                return const Center(child: Text('Sin datos para esta fecha'));
+              }
+              final maxSales = hours.fold<double>(0, (prev, h) {
+                final v = double.tryParse(
+                        (h as Map<String, dynamic>)['total']?.toString() ??
+                            '0') ??
+                    0;
+                return v > prev ? v : prev;
+              });
+              return ListView.builder(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                itemCount: hours.length,
+                itemBuilder: (_, i) {
+                  final h = hours[i] as Map<String, dynamic>;
+                  final hour = h['hour']?.toString() ?? '$i';
+                  final total = double.tryParse(
+                          h['total']?.toString() ?? '0') ??
+                      0;
+                  final orders = h['orderCount'] ?? 0;
+                  final pct = maxSales > 0 ? total / maxSales : 0.0;
+                  return Padding(
+                    padding:
+                        const EdgeInsets.only(bottom: AppSpacing.xs),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 50,
+                          child: Text('${hour}h',
+                              style: AppTypography.label),
+                        ),
+                        Expanded(
+                          child: Stack(
+                            children: [
+                              Container(
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceVariant,
+                                  borderRadius:
+                                      BorderRadius.circular(4),
+                                ),
+                              ),
+                              FractionallySizedBox(
+                                widthFactor: pct,
+                                child: Container(
+                                  height: 28,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primary
+                                        .withAlpha(180),
+                                    borderRadius:
+                                        BorderRadius.circular(4),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: AppSpacing.sm),
+                        SizedBox(
+                          width: 100,
+                          child: Text(
+                            '${_mxn.format(total)} ($orders)',
+                            style: AppTypography.caption,
+                            textAlign: TextAlign.end,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _InventoryVarianceTab extends ConsumerWidget {
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(_inventoryVarianceProvider);
+    return Column(
+      children: [
+        const _DateRangeBar(),
+        Expanded(
+          child: async.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('Error: $e')),
+            data: (data) {
+              final items =
+                  (data['items'] as List<dynamic>?) ?? [];
+              if (items.isEmpty) {
+                return const Center(
+                    child: Text('Sin variaciones en este período'));
+              }
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(AppSpacing.md),
+                child: Card(
+                  child: Table(
+                    columnWidths: const {
+                      0: FlexColumnWidth(3),
+                      1: FlexColumnWidth(2),
+                      2: FlexColumnWidth(2),
+                      3: FlexColumnWidth(2),
+                    },
+                    children: [
+                      _tableHeader([
+                        'Insumo',
+                        'Teórico',
+                        'Real',
+                        'Variación',
+                      ]),
+                      ...items.map((raw) {
+                        final item = raw as Map<String, dynamic>;
+                        final theoretical = double.tryParse(
+                                item['theoreticalConsumption']
+                                        ?.toString() ??
+                                    '0') ??
+                            0;
+                        final actual = double.tryParse(
+                                item['actualConsumption']
+                                        ?.toString() ??
+                                    '0') ??
+                            0;
+                        final variance = actual - theoretical;
+                        final isOver = variance > 0;
+                        return TableRow(children: [
+                          _tableCell(
+                              item['ingredientName']?.toString() ??
+                                  '—'),
+                          _tableCell(
+                              theoretical.toStringAsFixed(2)),
+                          _tableCell(actual.toStringAsFixed(2)),
+                          Padding(
+                            padding:
+                                const EdgeInsets.all(AppSpacing.sm),
+                            child: Text(
+                              '${isOver ? '+' : ''}${variance.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                color: variance.abs() < 0.01
+                                    ? AppColors.success
+                                    : isOver
+                                        ? AppColors.danger
+                                        : AppColors.warning,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ]);
+                      }),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }

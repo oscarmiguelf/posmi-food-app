@@ -20,6 +20,8 @@ import '../../features/admin/setup/setup_screen.dart';
 import '../../features/admin/business/business_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import '../../features/cash/cash_screen.dart';
+import '../../features/admin/suppliers/suppliers_screen.dart';
+import '../../features/admin/purchase_orders/purchase_orders_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authListenable = _AuthListenable(ref);
@@ -117,6 +119,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(
                 path: '/admin/users',
                 builder: (context, _) => const UsersScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/admin/suppliers',
+                builder: (context, _) => const SuppliersScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/admin/purchase-orders',
+                builder: (context, _) => const PurchaseOrdersScreen()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(

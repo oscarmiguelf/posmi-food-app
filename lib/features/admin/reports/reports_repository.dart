@@ -45,4 +45,15 @@ class ReportsRepository {
         await _dio.get<Map<String, dynamic>>('/reports/profitability');
     return res.data!['data'] as Map<String, dynamic>;
   }
+
+  Future<Map<String, dynamic>> getInventoryVariance({
+    required String from,
+    required String to,
+  }) async {
+    final res = await _dio.get<Map<String, dynamic>>(
+      '/reports/inventory-variance',
+      queryParameters: {'from': from, 'to': to},
+    );
+    return res.data!['data'] as Map<String, dynamic>;
+  }
 }

@@ -96,6 +96,14 @@ class AppShell extends ConsumerWidget {
               label: 'Usuarios',
               path: '/admin/users'),
           const _NavItem(
+              icon: Icons.local_shipping_outlined,
+              label: 'Proveedores',
+              path: '/admin/suppliers'),
+          const _NavItem(
+              icon: Icons.receipt_long_outlined,
+              label: 'Compras',
+              path: '/admin/purchase-orders'),
+          const _NavItem(
               icon: Icons.table_bar_outlined,
               label: 'Mesas',
               path: '/admin/tables'),

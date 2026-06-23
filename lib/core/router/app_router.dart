@@ -22,6 +22,8 @@ import '../../features/profile/profile_screen.dart';
 import '../../features/cash/cash_screen.dart';
 import '../../features/admin/suppliers/suppliers_screen.dart';
 import '../../features/admin/purchase_orders/purchase_orders_screen.dart';
+import '../../features/admin/menu_categories/menu_categories_screen.dart';
+import '../../features/digital_menu/digital_menu_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authListenable = _AuthListenable(ref);
@@ -32,12 +34,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final auth = ref.read(authProvider);
       if (auth.isLoading) return null;
-      final isLogin = state.matchedLocation == '/login';
-      if (!auth.isAuthenticated && !isLogin) return '/login';
+      final path = state.matchedLocation;
+      final isPublic = path.startsWith('/menu/');
+      final isLogin = path == '/login';
+      if (!auth.isAuthenticated && !isLogin && !isPublic) return '/login';
       if (auth.isAuthenticated && isLogin) return '/tables';
 
       // Admin-only routes
-      final path = state.matchedLocation;
       if (path.startsWith('/admin')) {
         final user = ref.read(currentUserProvider);
         if (user == null || !user.isAdmin) return '/tables';
@@ -48,6 +51,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/login',
         builder: (context, _) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/menu/:branchId',
+        builder: (context, state) => DigitalMenuScreen(
+          branchId: state.pathParameters['branchId']!,
+        ),
       ),
       // Full-screen routes — no shell
       GoRoute(
@@ -119,6 +128,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(
                 path: '/admin/users',
                 builder: (context, _) => const UsersScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/admin/menu-categories',
+                builder: (context, _) =>
+                    const MenuCategoriesScreen()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(

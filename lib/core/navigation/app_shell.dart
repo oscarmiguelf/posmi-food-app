@@ -70,6 +70,10 @@ class AppShell extends ConsumerWidget {
             path: '/tables'),
         const _NavItem(
             icon: Icons.tv_outlined, label: 'Cocina', path: '/kds'),
+        const _NavItem(
+            icon: Icons.point_of_sale_outlined,
+            label: 'Caja',
+            path: '/cash'),
         if (isAdmin) ...[
           const _NavItem(
               icon: Icons.dashboard_outlined,

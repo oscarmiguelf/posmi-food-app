@@ -39,6 +39,7 @@ class OrderModel {
     this.tableId,
     this.tableLabel,
     this.total,
+    this.createdAt,
   });
 
   final String id;
@@ -48,6 +49,7 @@ class OrderModel {
   final String? tableId;
   final String? tableLabel;
   final String? total;
+  final DateTime? createdAt;
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     final table = json['table'] as Map<String, dynamic>?;
@@ -59,6 +61,9 @@ class OrderModel {
       tableId: json['tableId'] as String?,
       tableLabel: table?['label'] as String?,
       total: json['total']?.toString(),
+      createdAt: json['createdAt'] != null
+          ? DateTime.tryParse(json['createdAt'] as String)
+          : null,
       items: rawItems
           .map((e) => OrderItemModel.fromJson(e as Map<String, dynamic>))
           .toList(),

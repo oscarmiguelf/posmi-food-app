@@ -19,6 +19,7 @@ import '../../features/admin/stations/stations_screen.dart';
 import '../../features/admin/setup/setup_screen.dart';
 import '../../features/admin/business/business_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/cash/cash_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authListenable = _AuthListenable(ref);
@@ -86,6 +87,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ]),
           StatefulShellBranch(routes: [
             GoRoute(path: '/kds', builder: (context, _) => const KdsScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/cash',
+                builder: (context, _) => const CashScreen()),
           ]),
           StatefulShellBranch(routes: [
             GoRoute(

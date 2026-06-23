@@ -223,54 +223,177 @@ class _SuccessView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final total = result['total']?.toString() ?? '—';
+    final total = double.tryParse(result['total']?.toString() ?? '0') ?? 0;
     final points = result['pointsEarned'] as int? ?? 0;
+    final items = result['items'] as List<dynamic>? ?? [];
+    final payments = result['payments'] as List<dynamic>? ?? [];
+    final ticketData = result['ticketData'] as Map<String, dynamic>?;
+
+    final subtotal = ticketData?['subtotal']?.toString() ?? _calcSubtotal(total);
+    final iva = ticketData?['iva']?.toString() ?? _calcIva(total);
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Ticket'),
+        automaticallyImplyLeading: false,
+      ),
       body: Center(
         child: SizedBox(
-          width: 400,
+          width: 420,
           child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.xl),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.lg),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const Icon(
-                    Icons.check_circle_outline,
-                    color: AppColors.success,
-                    size: 80,
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    '¡Pago confirmado!',
-                    style: Theme.of(context).textTheme.headlineLarge,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Total cobrado: \$$total',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                  if (points > 0) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      '+$points puntos de lealtad',
+                  const Icon(Icons.check_circle_outline,
+                      color: AppColors.success, size: 56),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text('Pago confirmado',
+                      textAlign: TextAlign.center,
                       style: Theme.of(context)
                           .textTheme
-                          .bodyMedium
-                          ?.copyWith(color: AppColors.success),
+                          .headlineMedium
+                          ?.copyWith(color: AppColors.success)),
+                  const Divider(height: AppSpacing.xl),
+
+                  // Items
+                  if (items.isNotEmpty) ...[
+                    ...items.map((raw) {
+                      final item = raw as Map<String, dynamic>;
+                      final name = (item['menuItem']
+                                  as Map<String, dynamic>?)?['name'] ??
+                              item['menuItemName'] ??
+                              '';
+                      final qty = item['quantity'] ?? 1;
+                      final price = double.tryParse(
+                              item['unitPriceWithTax']?.toString() ??
+                                  '0') ??
+                          0;
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(
+                          children: [
+                            SizedBox(
+                              width: 28,
+                              child: Text('$qty',
+                                  style: AppTypography.label),
+                            ),
+                            Expanded(child: Text('$name')),
+                            Text(
+                                '\$${(price * qty).toStringAsFixed(2)}'),
+                          ],
+                        ),
+                      );
+                    }),
+                    const Divider(height: AppSpacing.lg),
+                  ],
+
+                  // Subtotal + IVA
+                  _TicketRow('Subtotal', '\$$subtotal'),
+                  _TicketRow('IVA (16%)', '\$$iva'),
+                  const Divider(height: AppSpacing.md),
+                  _TicketRow(
+                    'TOTAL',
+                    '\$${total.toStringAsFixed(2)}',
+                    bold: true,
+                    large: true,
+                  ),
+
+                  // Payment methods used
+                  if (payments.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    ...payments.map((raw) {
+                      final p = raw as Map<String, dynamic>;
+                      final method = switch (p['paymentMethod']) {
+                        'cash' => 'Efectivo',
+                        'card' => 'Tarjeta',
+                        'transfer' => 'Transferencia',
+                        _ => p['paymentMethod']?.toString() ?? '',
+                      };
+                      return _TicketRow('Pago: $method',
+                          '\$${p['amount']?.toString() ?? '—'}');
+                    }),
+                  ],
+
+                  // Loyalty
+                  if (points > 0) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
+                      padding: const EdgeInsets.all(AppSpacing.sm),
+                      decoration: BoxDecoration(
+                        color: AppColors.success.withAlpha(15),
+                        borderRadius:
+                            BorderRadius.circular(AppSpacing.borderRadius),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.star,
+                              color: AppColors.success, size: 18),
+                          const SizedBox(width: AppSpacing.xs),
+                          Text(
+                            '+$points puntos de lealtad',
+                            style: AppTypography.label
+                                .copyWith(color: AppColors.success),
+                          ),
+                        ],
+                      ),
                     ),
                   ],
+
                   const SizedBox(height: AppSpacing.xl),
-                  ElevatedButton(
+                  FilledButton.icon(
                     onPressed: () => context.go('/tables'),
-                    child: const Text('Volver a mesas'),
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Volver a mesas'),
                   ),
                 ],
               ),
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  String _calcSubtotal(double total) =>
+      (total / 1.16).toStringAsFixed(2);
+
+  String _calcIva(double total) =>
+      (total - total / 1.16).toStringAsFixed(2);
+}
+
+class _TicketRow extends StatelessWidget {
+  const _TicketRow(this.label, this.value,
+      {this.bold = false, this.large = false});
+
+  final String label;
+  final String value;
+  final bool bold;
+  final bool large;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = large
+        ? Theme.of(context).textTheme.headlineSmall
+        : bold
+            ? AppTypography.label
+            : Theme.of(context).textTheme.bodyMedium;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: style?.copyWith(
+                  fontWeight: bold ? FontWeight.bold : null)),
+          Text(value,
+              style: style?.copyWith(
+                  fontWeight: bold ? FontWeight.bold : null,
+                  color: large ? AppColors.primary : null)),
+        ],
       ),
     );
   }

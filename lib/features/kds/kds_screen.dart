@@ -4,6 +4,7 @@ import '../../core/models/order_model.dart';
 import '../../design_system/tokens/app_colors.dart';
 import '../../design_system/tokens/app_spacing.dart';
 import '../../design_system/tokens/app_typography.dart';
+import '../orders/orders_repository.dart';
 import 'kds_provider.dart';
 
 class KdsScreen extends ConsumerWidget {
@@ -237,20 +238,37 @@ class _KdsCard extends ConsumerWidget {
   }
 
   int _orderAge(OrderModel order) {
-    // If no createdAt in model, return 0
-    return 0;
+    if (order.createdAt == null) return 0;
+    return DateTime.now().difference(order.createdAt!).inMinutes;
   }
 
   Future<void> _markReady(BuildContext context, WidgetRef ref) async {
-    // For pilot: just show a snack — full status machine in next iteration
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '${order.tableLabel ?? "Orden"} marcada como lista',
-        ),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    try {
+      await ref.read(ordersRepositoryProvider).updateStatus(
+            orderId: order.id,
+            status: 'ready',
+            version: order.version,
+          );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${order.tableLabel ?? "Orden"} marcada como lista',
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: AppColors.danger,
+          ),
+        );
+      }
+    }
     await ref.read(kdsOrdersProvider.notifier).refresh();
   }
 }

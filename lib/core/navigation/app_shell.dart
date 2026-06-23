@@ -197,6 +197,7 @@ class _Sidebar extends StatelessWidget {
               user?.roleName ?? '',
               style: const TextStyle(color: Colors.white54, fontSize: 11),
             ),
+            onTap: () => context.go('/profile'),
             trailing: IconButton(
               icon: const Icon(Icons.logout, color: Colors.white70, size: 18),
               tooltip: 'Cerrar sesión',
@@ -297,6 +298,14 @@ class _DrawerNav extends StatelessWidget {
             ),
           ),
           const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.account_circle_outlined),
+            title: const Text('Mi perfil'),
+            onTap: () {
+              Navigator.of(context).pop();
+              context.go('/profile');
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.logout),
             title: const Text('Cerrar sesión'),

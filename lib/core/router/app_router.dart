@@ -18,6 +18,7 @@ import '../../features/admin/tables_setup/tables_setup_screen.dart';
 import '../../features/admin/stations/stations_screen.dart';
 import '../../features/admin/setup/setup_screen.dart';
 import '../../features/admin/business/business_screen.dart';
+import '../../features/profile/profile_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authListenable = _AuthListenable(ref);
@@ -68,6 +69,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           version:
               int.tryParse(state.uri.queryParameters['version'] ?? '0') ?? 0,
         ),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (context, _) => const ProfileScreen(),
       ),
       // Shell: persistent sidebar navigation
       StatefulShellRoute.indexedStack(

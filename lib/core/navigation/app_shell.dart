@@ -103,6 +103,10 @@ class AppShell extends ConsumerWidget {
               icon: Icons.settings_outlined,
               label: 'Configuración',
               path: '/admin/setup'),
+          const _NavItem(
+              icon: Icons.storefront_outlined,
+              label: 'Mi negocio',
+              path: '/admin/business'),
         ],
       ];
 }

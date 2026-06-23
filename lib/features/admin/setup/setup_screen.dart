@@ -27,6 +27,15 @@ class SetupScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.lg),
             _SetupStep(
+              number: 0,
+              title: 'Datos del negocio',
+              description:
+                  'Cambia el nombre de tu empresa, RFC y los datos de la sucursal.',
+              icon: Icons.storefront_outlined,
+              actionLabel: 'Ir a Mi negocio',
+              onTap: () => context.go('/admin/business'),
+            ),
+            _SetupStep(
               number: 1,
               title: 'Mesas',
               description:

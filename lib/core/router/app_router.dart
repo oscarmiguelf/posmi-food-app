@@ -17,6 +17,7 @@ import '../../features/admin/users/users_screen.dart';
 import '../../features/admin/tables_setup/tables_setup_screen.dart';
 import '../../features/admin/stations/stations_screen.dart';
 import '../../features/admin/setup/setup_screen.dart';
+import '../../features/admin/business/business_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authListenable = _AuthListenable(ref);
@@ -120,6 +121,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             GoRoute(
                 path: '/admin/setup',
                 builder: (context, _) => const SetupScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/admin/business',
+                builder: (context, _) => const BusinessScreen()),
           ]),
         ],
       ),

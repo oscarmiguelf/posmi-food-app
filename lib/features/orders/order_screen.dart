@@ -68,62 +68,64 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         builder: (ctx, setDialogState) => AlertDialog(
           title: Text(item.name),
           content: SizedBox(
-            width: 380,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Modificadores',
-                    style: Theme.of(ctx).textTheme.labelLarge),
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ModifierInput(
-                        onAdd: (name, action) {
-                          setDialogState(() {
-                            modifiers.add(ItemModifier(
-                                ingredientName: name, action: action));
-                          });
-                        },
-                      ),
+            width: 400,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Modificadores',
+                      style: Theme.of(ctx).textTheme.labelLarge),
+                  const SizedBox(height: AppSpacing.sm),
+                  _ModifierInput(
+                    onAdd: (name, action, price) {
+                      setDialogState(() {
+                        modifiers.add(ItemModifier(
+                          ingredientName: name,
+                          action: action,
+                          extraPrice: price,
+                        ));
+                      });
+                    },
+                  ),
+                  if (modifiers.isNotEmpty) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 4,
+                      children: modifiers.asMap().entries.map((e) {
+                        final m = e.value;
+                        final priceTag = m.hasCharge
+                            ? ' +\$${m.extraPrice!.toStringAsFixed(2)}'
+                            : '';
+                        final label = m.action == 'remove'
+                            ? 'SIN ${m.ingredientName}'
+                            : 'EXTRA ${m.ingredientName}$priceTag';
+                        return Chip(
+                          label: Text(label,
+                              style: const TextStyle(fontSize: 12)),
+                          deleteIcon:
+                              const Icon(Icons.close, size: 14),
+                          onDeleted: () => setDialogState(
+                              () => modifiers.removeAt(e.key)),
+                          backgroundColor: m.action == 'remove'
+                              ? AppColors.danger.withAlpha(20)
+                              : AppColors.success.withAlpha(20),
+                        );
+                      }).toList(),
                     ),
                   ],
-                ),
-                if (modifiers.isNotEmpty) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 4,
-                    children: modifiers.asMap().entries.map((e) {
-                      final m = e.value;
-                      final label = m.action == 'remove'
-                          ? 'SIN ${m.ingredientName}'
-                          : 'EXTRA ${m.ingredientName}';
-                      return Chip(
-                        label: Text(label,
-                            style: const TextStyle(fontSize: 12)),
-                        deleteIcon:
-                            const Icon(Icons.close, size: 14),
-                        onDeleted: () => setDialogState(
-                            () => modifiers.removeAt(e.key)),
-                        backgroundColor: m.action == 'remove'
-                            ? AppColors.danger.withAlpha(20)
-                            : AppColors.success.withAlpha(20),
-                      );
-                    }).toList(),
+                  const SizedBox(height: AppSpacing.md),
+                  TextFormField(
+                    controller: notesCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nota para cocina',
+                      hintText: 'Bien cocido, sin picante...',
+                    ),
+                    maxLines: 2,
                   ),
                 ],
-                const SizedBox(height: AppSpacing.md),
-                TextFormField(
-                  controller: notesCtrl,
-                  decoration: const InputDecoration(
-                    labelText: 'Nota para cocina',
-                    hintText: 'Bien cocido, sin picante...',
-                  ),
-                  maxLines: 2,
-                ),
-              ],
+              ),
             ),
           ),
           actions: [
@@ -409,7 +411,7 @@ class _MenuItemCard extends StatelessWidget {
   }
 }
 
-class _OrderPanel extends StatelessWidget {
+class _OrderPanel extends ConsumerWidget {
   const _OrderPanel({
     required this.cart,
     required this.allItems,
@@ -423,14 +425,17 @@ class _OrderPanel extends StatelessWidget {
   final VoidCallback onSend;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final existingItems = cart.order?.items ?? [];
     final menuMap = {for (final m in allItems) m.id: m};
 
     double cartTotal = 0;
     for (final item in cart.items) {
       final price = menuMap[item.menuItemId]?.price ?? 0;
-      cartTotal += price * item.quantity;
+      final extrasPrice = item.modifiers
+          .where((m) => m.action == 'add' && m.extraPrice != null && m.extraPrice! > 0)
+          .fold(0.0, (s, m) => s + m.extraPrice!);
+      cartTotal += (price + extrasPrice) * item.quantity;
     }
     final existingTotal = cart.order?.computedTotal ?? 0;
     final grandTotal = existingTotal + cartTotal;
@@ -450,6 +455,21 @@ class _OrderPanel extends StatelessWidget {
               style: Theme.of(context).textTheme.headlineSmall,
             ),
           ),
+          if (cart.order == null)
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                  horizontal: AppSpacing.md),
+              child: TextField(
+                decoration: const InputDecoration(
+                  isDense: true,
+                  hintText: 'Nombre del cliente (opcional)',
+                  prefixIcon: Icon(Icons.person_outline, size: 18),
+                ),
+                onChanged: (v) => ref
+                    .read(orderNotifierProvider.notifier)
+                    .setCustomerName(v.trim().isEmpty ? null : v.trim()),
+              ),
+            ),
           const Divider(height: 1),
           Expanded(
             child: ListView(
@@ -460,7 +480,7 @@ class _OrderPanel extends StatelessWidget {
                   (item) => _OrderLine(
                     name: item.menuItemName,
                     qty: item.quantity,
-                    price: item.lineTotal,
+                    price: item.lineTotalWithExtras,
                     isSent: true,
                     onRemove: null,
                     subtitle: item.modifiersSummary.isNotEmpty
@@ -636,7 +656,7 @@ class _OrderLine extends StatelessWidget {
 
 class _ModifierInput extends StatefulWidget {
   const _ModifierInput({required this.onAdd});
-  final void Function(String name, String action) onAdd;
+  final void Function(String name, String action, double? price) onAdd;
 
   @override
   State<_ModifierInput> createState() => _ModifierInputState();
@@ -644,44 +664,68 @@ class _ModifierInput extends StatefulWidget {
 
 class _ModifierInputState extends State<_ModifierInput> {
   final _ctrl = TextEditingController();
+  final _priceCtrl = TextEditingController();
   String _action = 'remove';
 
   @override
   void dispose() {
     _ctrl.dispose();
+    _priceCtrl.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    return Column(
       children: [
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'remove', label: Text('SIN')),
-            ButtonSegment(value: 'add', label: Text('EXTRA')),
-          ],
-          selected: {_action},
-          onSelectionChanged: (s) => setState(() => _action = s.first),
-          style: SegmentedButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-        const SizedBox(width: AppSpacing.sm),
-        Expanded(
-          child: TextField(
-            controller: _ctrl,
-            decoration: const InputDecoration(
-              isDense: true,
-              hintText: 'Ingrediente',
+        Row(
+          children: [
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'remove', label: Text('SIN')),
+                ButtonSegment(value: 'add', label: Text('EXTRA')),
+              ],
+              selected: {_action},
+              onSelectionChanged: (s) =>
+                  setState(() => _action = s.first),
+              style: SegmentedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+              ),
             ),
-            onSubmitted: (_) => _submit(),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: TextField(
+                controller: _ctrl,
+                decoration: const InputDecoration(
+                  isDense: true,
+                  hintText: 'Ingrediente',
+                ),
+                onSubmitted: (_) => _submit(),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle,
+                  color: AppColors.primary),
+              onPressed: _submit,
+            ),
+          ],
+        ),
+        if (_action == 'add') ...[
+          const SizedBox(height: AppSpacing.xs),
+          SizedBox(
+            width: 160,
+            child: TextField(
+              controller: _priceCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                isDense: true,
+                prefixText: '\$ ',
+                hintText: '0.00 = sin cargo',
+                labelText: 'Cargo extra',
+              ),
+            ),
           ),
-        ),
-        IconButton(
-          icon: const Icon(Icons.add_circle, color: AppColors.primary),
-          onPressed: _submit,
-        ),
+        ],
       ],
     );
   }
@@ -689,7 +733,11 @@ class _ModifierInputState extends State<_ModifierInput> {
   void _submit() {
     final text = _ctrl.text.trim();
     if (text.isEmpty) return;
-    widget.onAdd(text, _action);
+    final price = _action == 'add'
+        ? double.tryParse(_priceCtrl.text.trim())
+        : null;
+    widget.onAdd(text, _action, price != null && price > 0 ? price : null);
     _ctrl.clear();
+    _priceCtrl.clear();
   }
 }

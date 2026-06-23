@@ -19,6 +19,7 @@ class OrdersRepository {
     String? tableId,
     required List<Map<String, dynamic>> items,
     List<String>? extraTableIds,
+    String? customerName,
   }) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/orders',
@@ -28,6 +29,8 @@ class OrdersRepository {
         'items': items,
         if (extraTableIds != null && extraTableIds.isNotEmpty)
           'extraTableIds': extraTableIds,
+        if (customerName != null && customerName.isNotEmpty)
+          'customerName': customerName,
       },
     );
     return OrderModel.fromJson(res.data!['data'] as Map<String, dynamic>);

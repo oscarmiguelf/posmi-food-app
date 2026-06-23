@@ -42,6 +42,7 @@ class CartState {
     this.isSubmitting = false,
     this.error,
     this.extraTableIds = const [],
+    this.customerName,
   });
 
   final OrderModel? order;
@@ -49,6 +50,7 @@ class CartState {
   final bool isSubmitting;
   final String? error;
   final List<String> extraTableIds;
+  final String? customerName;
 
   bool get isEmpty => items.isEmpty;
 
@@ -70,8 +72,10 @@ class CartState {
     bool? isSubmitting,
     String? error,
     List<String>? extraTableIds,
+    String? customerName,
     bool clearError = false,
     bool clearOrder = false,
+    bool clearCustomerName = false,
   }) =>
       CartState(
         order: clearOrder ? null : order ?? this.order,
@@ -79,6 +83,7 @@ class CartState {
         isSubmitting: isSubmitting ?? this.isSubmitting,
         error: clearError ? null : error ?? this.error,
         extraTableIds: extraTableIds ?? this.extraTableIds,
+        customerName: clearCustomerName ? null : customerName ?? this.customerName,
       );
 }
 
@@ -158,6 +163,10 @@ class OrderNotifier extends Notifier<CartState> {
     state = state.copyWith(extraTableIds: tableIds);
   }
 
+  void setCustomerName(String? name) {
+    state = state.copyWith(customerName: name);
+  }
+
   Future<OrderModel?> submitCart({
     required String? tableId,
     required List<MenuItemModel> menuItems,
@@ -176,6 +185,7 @@ class OrderNotifier extends Notifier<CartState> {
           tableId: tableId,
           items: apiItems,
           extraTableIds: state.extraTableIds.isNotEmpty ? state.extraTableIds : null,
+          customerName: state.customerName,
         );
       }
       state = CartState(order: order);

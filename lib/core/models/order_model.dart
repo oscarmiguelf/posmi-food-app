@@ -1,17 +1,27 @@
 class ItemModifier {
-  const ItemModifier({required this.ingredientName, required this.action});
+  const ItemModifier({
+    required this.ingredientName,
+    required this.action,
+    this.extraPrice,
+  });
   final String ingredientName;
   final String action; // 'remove' | 'add'
+  final double? extraPrice;
 
   factory ItemModifier.fromJson(Map<String, dynamic> json) => ItemModifier(
         ingredientName: json['ingredientName'] as String,
         action: json['action'] as String,
+        extraPrice: double.tryParse(json['extraPrice']?.toString() ?? '0'),
       );
 
   Map<String, dynamic> toJson() => {
         'ingredientName': ingredientName,
         'action': action,
+        if (extraPrice != null && extraPrice! > 0)
+          'extraPrice': extraPrice!.toStringAsFixed(2),
       };
+
+  bool get hasCharge => action == 'add' && extraPrice != null && extraPrice! > 0;
 }
 
 class OrderItemModel {
@@ -58,11 +68,22 @@ class OrderItemModel {
     if (modifiers.isEmpty && (notes == null || notes!.isEmpty)) return '';
     final parts = <String>[];
     for (final m in modifiers) {
-      parts.add(m.action == 'remove' ? 'SIN ${m.ingredientName}' : 'EXTRA ${m.ingredientName}');
+      if (m.action == 'remove') {
+        parts.add('SIN ${m.ingredientName}');
+      } else {
+        final price = m.hasCharge ? ' (+\$${m.extraPrice!.toStringAsFixed(2)})' : '';
+        parts.add('EXTRA ${m.ingredientName}$price');
+      }
     }
     if (notes != null && notes!.isNotEmpty) parts.add(notes!);
     return parts.join(' · ');
   }
+
+  double get extrasTotal => modifiers
+      .where((m) => m.hasCharge)
+      .fold(0.0, (sum, m) => sum + m.extraPrice! * quantity);
+
+  double get lineTotalWithExtras => lineTotal + extrasTotal;
 }
 
 class OrderModel {
@@ -75,6 +96,8 @@ class OrderModel {
     this.tableLabel,
     this.total,
     this.createdAt,
+    this.customerId,
+    this.customerName,
   });
 
   final String id;
@@ -85,6 +108,8 @@ class OrderModel {
   final String? tableLabel;
   final String? total;
   final DateTime? createdAt;
+  final String? customerId;
+  final String? customerName;
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     final table = json['table'] as Map<String, dynamic>?;
@@ -99,12 +124,17 @@ class OrderModel {
       createdAt: json['createdAt'] != null
           ? DateTime.tryParse(json['createdAt'] as String)
           : null,
+      customerId: json['customerId'] as String?,
+      customerName: json['customerName'] as String?,
       items: rawItems
           .map((e) => OrderItemModel.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }
 
+  String get displayName =>
+      customerName ?? (tableLabel != null ? null : 'Sin nombre') ?? '';
+
   double get computedTotal =>
-      items.fold(0.0, (sum, item) => sum + item.lineTotal);
+      items.fold(0.0, (sum, item) => sum + item.lineTotalWithExtras);
 }

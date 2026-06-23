@@ -2,11 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../auth/auth_notifier.dart';
+import '../auth/current_user.dart';
+import '../navigation/app_shell.dart';
 import '../../features/auth/login_screen.dart';
 import '../../features/tables/tables_screen.dart';
 import '../../features/orders/order_screen.dart';
 import '../../features/orders/payment_screen.dart';
 import '../../features/kds/kds_screen.dart';
+import '../../features/admin/dashboard/dashboard_screen.dart';
+import '../../features/admin/reports/reports_screen.dart';
+import '../../features/admin/menu/menu_admin_screen.dart';
+import '../../features/admin/ingredients/ingredients_screen.dart';
+import '../../features/admin/users/users_screen.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final authListenable = _AuthListenable(ref);
@@ -20,6 +27,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final isLogin = state.matchedLocation == '/login';
       if (!auth.isAuthenticated && !isLogin) return '/login';
       if (auth.isAuthenticated && isLogin) return '/tables';
+
+      // Admin-only routes
+      final path = state.matchedLocation;
+      if (path.startsWith('/admin')) {
+        final user = ref.read(currentUserProvider);
+        if (user == null || !user.isAdmin) return '/tables';
+      }
       return null;
     },
     routes: [
@@ -27,45 +41,69 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/login',
         builder: (context, _) => const LoginScreen(),
       ),
-      GoRoute(
-        path: '/tables',
-        builder: (context, _) => const TablesScreen(),
-      ),
+      // Full-screen routes — no shell
       GoRoute(
         path: '/orders/new',
-        builder: (_, state) {
-          final tableId = state.uri.queryParameters['tableId'];
-          final tableLabel = state.uri.queryParameters['tableLabel'];
-          return OrderScreen(tableId: tableId, tableLabel: tableLabel);
-        },
+        builder: (context, state) => OrderScreen(
+          tableId: state.uri.queryParameters['tableId'],
+          tableLabel: state.uri.queryParameters['tableLabel'],
+        ),
       ),
       GoRoute(
         path: '/orders/:id',
-        builder: (_, state) {
-          final orderId = state.pathParameters['id']!;
-          final tableLabel = state.uri.queryParameters['tableLabel'];
-          return OrderScreen(orderId: orderId, tableLabel: tableLabel);
-        },
+        builder: (context, state) => OrderScreen(
+          orderId: state.pathParameters['id'],
+          tableLabel: state.uri.queryParameters['tableLabel'],
+        ),
       ),
       GoRoute(
         path: '/orders/:id/payment',
-        builder: (_, state) {
-          final orderId = state.pathParameters['id']!;
-          final total = state.uri.queryParameters['total'] ?? '0';
-          final version = int.tryParse(
-                state.uri.queryParameters['version'] ?? '0',
-              ) ??
-              0;
-          return PaymentScreen(
-            orderId: orderId,
-            total: total,
-            version: version,
-          );
-        },
+        builder: (context, state) => PaymentScreen(
+          orderId: state.pathParameters['id']!,
+          total: state.uri.queryParameters['total'] ?? '0',
+          version:
+              int.tryParse(state.uri.queryParameters['version'] ?? '0') ?? 0,
+        ),
       ),
-      GoRoute(
-        path: '/kds',
-        builder: (context, _) => const KdsScreen(),
+      // Shell: persistent sidebar navigation
+      StatefulShellRoute.indexedStack(
+        builder: (context, state, navigationShell) =>
+            AppShell(navigationShell: navigationShell),
+        branches: [
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/tables',
+                builder: (context, _) => const TablesScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(path: '/kds', builder: (context, _) => const KdsScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/admin/dashboard',
+                builder: (context, _) => const DashboardScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/admin/reports',
+                builder: (context, _) => const ReportsScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/admin/menu',
+                builder: (context, _) => const MenuAdminScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/admin/ingredients',
+                builder: (context, _) => const IngredientsScreen()),
+          ]),
+          StatefulShellBranch(routes: [
+            GoRoute(
+                path: '/admin/users',
+                builder: (context, _) => const UsersScreen()),
+          ]),
+        ],
       ),
     ],
   );

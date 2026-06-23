@@ -16,6 +16,7 @@ dependencies:
   # HTTP & WebSocket
   dio: ^5.8.0
   web_socket_channel: ^3.0.1
+  socket_io_client: ^2.0.3+1
 
   # Local storage (offline-first)
   drift: ^2.24.0

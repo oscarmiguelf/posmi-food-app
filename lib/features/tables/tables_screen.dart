@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/auth/auth_notifier.dart';
 import '../../core/models/table_model.dart';
 import '../../design_system/tokens/app_colors.dart';
 import '../../design_system/tokens/app_spacing.dart';
@@ -41,13 +40,6 @@ class TablesScreen extends ConsumerWidget {
             icon: const Icon(Icons.refresh),
             tooltip: 'Actualizar',
             onPressed: () => ref.read(tablesProvider.notifier).refresh(),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            tooltip: 'Cerrar sesión',
-            onPressed: () async {
-              await ref.read(authProvider.notifier).logout();
-            },
           ),
         ],
       ),

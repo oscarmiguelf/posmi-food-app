@@ -91,6 +91,18 @@ class AppShell extends ConsumerWidget {
               icon: Icons.people_outline,
               label: 'Usuarios',
               path: '/admin/users'),
+          const _NavItem(
+              icon: Icons.table_bar_outlined,
+              label: 'Mesas',
+              path: '/admin/tables'),
+          const _NavItem(
+              icon: Icons.kitchen_outlined,
+              label: 'Estaciones',
+              path: '/admin/stations'),
+          const _NavItem(
+              icon: Icons.settings_outlined,
+              label: 'Configuración',
+              path: '/admin/setup'),
         ],
       ];
 }

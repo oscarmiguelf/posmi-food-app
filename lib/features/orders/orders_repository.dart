@@ -18,6 +18,7 @@ class OrdersRepository {
   Future<OrderModel> createOrder({
     String? tableId,
     required List<Map<String, dynamic>> items,
+    List<String>? extraTableIds,
   }) async {
     final res = await _dio.post<Map<String, dynamic>>(
       '/orders',
@@ -25,6 +26,8 @@ class OrdersRepository {
         'idempotencyKey': _uuid.v4(),
         'tableId': ?tableId,
         'items': items,
+        if (extraTableIds != null && extraTableIds.isNotEmpty)
+          'extraTableIds': extraTableIds,
       },
     );
     return OrderModel.fromJson(res.data!['data'] as Map<String, dynamic>);

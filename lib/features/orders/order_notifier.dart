@@ -4,47 +4,81 @@ import '../../core/models/menu_item_model.dart';
 import '../../core/models/order_model.dart';
 import 'orders_repository.dart';
 
-/// Holds the in-progress cart items before they are submitted to the API.
+@immutable
+class CartItem {
+  const CartItem({
+    required this.menuItemId,
+    required this.quantity,
+    this.notes,
+    this.modifiers = const [],
+  });
+  final String menuItemId;
+  final int quantity;
+  final String? notes;
+  final List<ItemModifier> modifiers;
+
+  CartItem copyWith({int? quantity, String? notes, List<ItemModifier>? modifiers}) =>
+      CartItem(
+        menuItemId: menuItemId,
+        quantity: quantity ?? this.quantity,
+        notes: notes ?? this.notes,
+        modifiers: modifiers ?? this.modifiers,
+      );
+
+  Map<String, dynamic> toApiJson() => {
+        'menuItemId': menuItemId,
+        'quantity': quantity,
+        if (notes != null && notes!.isNotEmpty) 'notes': notes,
+        if (modifiers.isNotEmpty)
+          'modifiers': modifiers.map((m) => m.toJson()).toList(),
+      };
+}
+
 @immutable
 class CartState {
   const CartState({
     this.order,
-    this.cartItems = const {},
+    this.items = const [],
     this.isSubmitting = false,
     this.error,
+    this.extraTableIds = const [],
   });
 
-  /// Existing order loaded from the API (null if creating new).
   final OrderModel? order;
-
-  /// Local cart: menuItemId → quantity (items not yet sent to API).
-  final Map<String, int> cartItems;
-
+  final List<CartItem> items;
   final bool isSubmitting;
   final String? error;
+  final List<String> extraTableIds;
 
-  bool get isEmpty => cartItems.isEmpty;
+  bool get isEmpty => items.isEmpty;
 
-  double get cartTotal => cartItems.entries.fold(
-        0.0,
-        (sum, e) => sum + (e.value * 0),
-      );
+  // For backward compat with menu grid badges
+  Map<String, int> get cartItems {
+    final map = <String, int>{};
+    for (final item in items) {
+      map[item.menuItemId] = (map[item.menuItemId] ?? 0) + item.quantity;
+    }
+    return map;
+  }
 
-  int quantityOf(String menuItemId) => cartItems[menuItemId] ?? 0;
+  int quantityOf(String menuItemId) =>
+      items.where((i) => i.menuItemId == menuItemId).fold(0, (s, i) => s + i.quantity);
 
   CartState copyWith({
     OrderModel? order,
-    Map<String, int>? cartItems,
+    List<CartItem>? items,
     bool? isSubmitting,
     String? error,
+    List<String>? extraTableIds,
     bool clearError = false,
     bool clearOrder = false,
   }) =>
       CartState(
         order: clearOrder ? null : order ?? this.order,
-        cartItems: cartItems ?? this.cartItems,
+        items: items ?? this.items,
         isSubmitting: isSubmitting ?? this.isSubmitting,
         error: clearError ? null : error ?? this.error,
+        extraTableIds: extraTableIds ?? this.extraTableIds,
       );
 }
 
@@ -57,70 +91,92 @@ class OrderNotifier extends Notifier<CartState> {
 
   OrdersRepository get _repo => ref.read(ordersRepositoryProvider);
 
-  /// Load an existing order (e.g., for a table that already has one).
   Future<void> loadOrder(String orderId) async {
     try {
       final order = await _repo.getOrder(orderId);
-      state = state.copyWith(order: order, cartItems: {});
+      state = state.copyWith(order: order, items: []);
     } catch (e) {
       state = state.copyWith(error: e.toString());
     }
   }
 
-  /// Try to find an open order for a table; returns orderId if found.
   Future<String?> findOpenOrderForTable(String tableId) async {
     try {
       final orders = await _repo.getOpenOrdersForTable(tableId);
       if (orders.isNotEmpty) {
-        state = state.copyWith(order: orders.first, cartItems: {});
+        state = state.copyWith(order: orders.first, items: []);
         return orders.first.id;
       }
     } catch (_) {}
     return null;
   }
 
-  void addToCart(MenuItemModel item) {
-    final current = state.cartItems[item.id] ?? 0;
-    state = state.copyWith(
-      cartItems: {...state.cartItems, item.id: current + 1},
-      clearError: true,
-    );
-  }
-
-  void removeFromCart(String menuItemId) {
-    final current = state.cartItems[menuItemId] ?? 0;
-    if (current <= 1) {
-      final updated = Map<String, int>.from(state.cartItems)
-        ..remove(menuItemId);
-      state = state.copyWith(cartItems: updated);
-    } else {
+  void addToCart(MenuItemModel item, {String? notes, List<ItemModifier>? modifiers}) {
+    if ((modifiers != null && modifiers.isNotEmpty) || (notes != null && notes.isNotEmpty)) {
       state = state.copyWith(
-        cartItems: {...state.cartItems, menuItemId: current - 1},
+        items: [
+          ...state.items,
+          CartItem(
+            menuItemId: item.id,
+            quantity: 1,
+            notes: notes,
+            modifiers: modifiers ?? [],
+          ),
+        ],
+        clearError: true,
       );
+    } else {
+      final existing = state.items.indexWhere(
+          (i) => i.menuItemId == item.id && i.modifiers.isEmpty && (i.notes == null || i.notes!.isEmpty));
+      if (existing >= 0) {
+        final updated = List<CartItem>.from(state.items);
+        updated[existing] = updated[existing].copyWith(quantity: updated[existing].quantity + 1);
+        state = state.copyWith(items: updated, clearError: true);
+      } else {
+        state = state.copyWith(
+          items: [...state.items, CartItem(menuItemId: item.id, quantity: 1)],
+          clearError: true,
+        );
+      }
     }
   }
 
-  /// Submit cart items to the API (create or update the order).
+  void removeFromCart(String menuItemId) {
+    final idx = state.items.lastIndexWhere((i) => i.menuItemId == menuItemId);
+    if (idx < 0) return;
+    final item = state.items[idx];
+    final updated = List<CartItem>.from(state.items);
+    if (item.quantity <= 1) {
+      updated.removeAt(idx);
+    } else {
+      updated[idx] = item.copyWith(quantity: item.quantity - 1);
+    }
+    state = state.copyWith(items: updated);
+  }
+
+  void setExtraTables(List<String> tableIds) {
+    state = state.copyWith(extraTableIds: tableIds);
+  }
+
   Future<OrderModel?> submitCart({
     required String? tableId,
     required List<MenuItemModel> menuItems,
   }) async {
-    if (state.cartItems.isEmpty) return state.order;
+    if (state.items.isEmpty) return state.order;
     state = state.copyWith(isSubmitting: true, clearError: true);
 
-    final items = state.cartItems.entries.map((e) {
-      return {'menuItemId': e.key, 'quantity': e.value};
-    }).toList();
+    final apiItems = state.items.map((i) => i.toApiJson()).toList();
 
     try {
       OrderModel order;
       if (state.order != null) {
-        order = await _repo.addItems(
-          orderId: state.order!.id,
-          items: items,
-        );
+        order = await _repo.addItems(orderId: state.order!.id, items: apiItems);
       } else {
-        order = await _repo.createOrder(tableId: tableId, items: items);
+        order = await _repo.createOrder(
+          tableId: tableId,
+          items: apiItems,
+          extraTableIds: state.extraTableIds.isNotEmpty ? state.extraTableIds : null,
+        );
       }
       state = CartState(order: order);
       return order;

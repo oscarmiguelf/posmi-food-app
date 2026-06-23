@@ -216,11 +216,24 @@ class _KdsCard extends ConsumerWidget {
                       ),
                       const SizedBox(width: AppSpacing.sm),
                       Expanded(
-                        child: Text(
-                          item.menuItemName,
-                          style: AppTypography.bodyLg,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.menuItemName,
+                              style: AppTypography.bodyLg,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (item.modifiersSummary.isNotEmpty)
+                              Text(
+                                item.modifiersSummary,
+                                style: AppTypography.caption.copyWith(
+                                  color: AppColors.warning,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ],

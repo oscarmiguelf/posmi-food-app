@@ -1,3 +1,19 @@
+class ItemModifier {
+  const ItemModifier({required this.ingredientName, required this.action});
+  final String ingredientName;
+  final String action; // 'remove' | 'add'
+
+  factory ItemModifier.fromJson(Map<String, dynamic> json) => ItemModifier(
+        ingredientName: json['ingredientName'] as String,
+        action: json['action'] as String,
+      );
+
+  Map<String, dynamic> toJson() => {
+        'ingredientName': ingredientName,
+        'action': action,
+      };
+}
+
 class OrderItemModel {
   const OrderItemModel({
     required this.id,
@@ -6,6 +22,8 @@ class OrderItemModel {
     required this.quantity,
     required this.unitPriceWithTax,
     this.stationName,
+    this.notes,
+    this.modifiers = const [],
   });
 
   final String id;
@@ -14,6 +32,8 @@ class OrderItemModel {
   final int quantity;
   final String unitPriceWithTax;
   final String? stationName;
+  final String? notes;
+  final List<ItemModifier> modifiers;
 
   factory OrderItemModel.fromJson(Map<String, dynamic> json) => OrderItemModel(
         id: json['id'] as String,
@@ -24,10 +44,25 @@ class OrderItemModel {
         quantity: json['quantity'] as int,
         unitPriceWithTax: json['unitPriceWithTax']?.toString() ?? '0.00',
         stationName: (json['station'] as Map<String, dynamic>?)?['name'] as String?,
+        notes: json['notes'] as String?,
+        modifiers: (json['modifiers'] as List<dynamic>?)
+                ?.map((e) => ItemModifier.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
       );
 
   double get lineTotal =>
       (double.tryParse(unitPriceWithTax) ?? 0) * quantity;
+
+  String get modifiersSummary {
+    if (modifiers.isEmpty && (notes == null || notes!.isEmpty)) return '';
+    final parts = <String>[];
+    for (final m in modifiers) {
+      parts.add(m.action == 'remove' ? 'SIN ${m.ingredientName}' : 'EXTRA ${m.ingredientName}');
+    }
+    if (notes != null && notes!.isNotEmpty) parts.add(notes!);
+    return parts.join(' · ');
+  }
 }
 
 class OrderModel {

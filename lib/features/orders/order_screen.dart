@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/models/menu_item_model.dart';
+import '../../core/models/order_model.dart';
 import '../../design_system/tokens/app_colors.dart';
 import '../../design_system/tokens/app_spacing.dart';
 import '../../design_system/tokens/app_typography.dart';
@@ -54,6 +55,99 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
         ),
       );
     }
+  }
+
+  void _showCustomizeDialog(
+      BuildContext context, WidgetRef ref, MenuItemModel item) {
+    final notesCtrl = TextEditingController();
+    final modifiers = <ItemModifier>[];
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          title: Text(item.name),
+          content: SizedBox(
+            width: 380,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Modificadores',
+                    style: Theme.of(ctx).textTheme.labelLarge),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _ModifierInput(
+                        onAdd: (name, action) {
+                          setDialogState(() {
+                            modifiers.add(ItemModifier(
+                                ingredientName: name, action: action));
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+                if (modifiers.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 4,
+                    children: modifiers.asMap().entries.map((e) {
+                      final m = e.value;
+                      final label = m.action == 'remove'
+                          ? 'SIN ${m.ingredientName}'
+                          : 'EXTRA ${m.ingredientName}';
+                      return Chip(
+                        label: Text(label,
+                            style: const TextStyle(fontSize: 12)),
+                        deleteIcon:
+                            const Icon(Icons.close, size: 14),
+                        onDeleted: () => setDialogState(
+                            () => modifiers.removeAt(e.key)),
+                        backgroundColor: m.action == 'remove'
+                            ? AppColors.danger.withAlpha(20)
+                            : AppColors.success.withAlpha(20),
+                      );
+                    }).toList(),
+                  ),
+                ],
+                const SizedBox(height: AppSpacing.md),
+                TextFormField(
+                  controller: notesCtrl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nota para cocina',
+                    hintText: 'Bien cocido, sin picante...',
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancelar')),
+            FilledButton(
+              onPressed: () {
+                ref.read(orderNotifierProvider.notifier).addToCart(
+                      item,
+                      notes: notesCtrl.text.trim().isEmpty
+                          ? null
+                          : notesCtrl.text.trim(),
+                      modifiers:
+                          modifiers.isEmpty ? null : List.from(modifiers),
+                    );
+                Navigator.pop(ctx);
+              },
+              child: const Text('Agregar'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -123,6 +217,8 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                         onAdd: (item) => ref
                             .read(orderNotifierProvider.notifier)
                             .addToCart(item),
+                        onCustomize: (item) =>
+                            _showCustomizeDialog(context, ref, item),
                       ),
                     ),
                   ],
@@ -196,11 +292,13 @@ class _MenuGrid extends StatelessWidget {
     required this.items,
     required this.cart,
     required this.onAdd,
+    required this.onCustomize,
   });
 
   final List<MenuItemModel> items;
   final CartState cart;
   final void Function(MenuItemModel) onAdd;
+  final void Function(MenuItemModel) onCustomize;
 
   @override
   Widget build(BuildContext context) {
@@ -216,7 +314,12 @@ class _MenuGrid extends StatelessWidget {
       itemBuilder: (_, i) {
         final item = items[i];
         final qty = cart.quantityOf(item.id);
-        return _MenuItemCard(item: item, qty: qty, onTap: () => onAdd(item));
+        return _MenuItemCard(
+          item: item,
+          qty: qty,
+          onTap: () => onAdd(item),
+          onLongPress: () => onCustomize(item),
+        );
       },
     );
   }
@@ -227,16 +330,19 @@ class _MenuItemCard extends StatelessWidget {
     required this.item,
     required this.qty,
     required this.onTap,
+    required this.onLongPress,
   });
 
   final MenuItemModel item;
   final int qty;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: Stack(
         children: [
           Container(
@@ -319,13 +425,12 @@ class _OrderPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final existingItems = cart.order?.items ?? [];
-    final cartEntries = cart.cartItems.entries.toList();
     final menuMap = {for (final m in allItems) m.id: m};
 
     double cartTotal = 0;
-    for (final e in cartEntries) {
-      final price = menuMap[e.key]?.price ?? 0;
-      cartTotal += price * e.value;
+    for (final item in cart.items) {
+      final price = menuMap[item.menuItemId]?.price ?? 0;
+      cartTotal += price * item.quantity;
     }
     final existingTotal = cart.order?.computedTotal ?? 0;
     final grandTotal = existingTotal + cartTotal;
@@ -358,21 +463,31 @@ class _OrderPanel extends StatelessWidget {
                     price: item.lineTotal,
                     isSent: true,
                     onRemove: null,
+                    subtitle: item.modifiersSummary.isNotEmpty
+                        ? item.modifiersSummary
+                        : null,
                   ),
                 ),
                 // Pending cart items
-                ...cartEntries.map((e) {
-                  final menuItem = menuMap[e.key];
+                ...cart.items.map((cartItem) {
+                  final menuItem = menuMap[cartItem.menuItemId];
                   if (menuItem == null) return const SizedBox.shrink();
                   return _OrderLine(
                     name: menuItem.name,
-                    qty: e.value,
-                    price: menuItem.price * e.value,
+                    qty: cartItem.quantity,
+                    price: menuItem.price * cartItem.quantity,
                     isSent: false,
-                    onRemove: () => onRemove(e.key),
+                    subtitle: cartItem.modifiers.isNotEmpty || (cartItem.notes != null && cartItem.notes!.isNotEmpty)
+                        ? [
+                            ...cartItem.modifiers.map((m) =>
+                                m.action == 'remove' ? 'SIN ${m.ingredientName}' : 'EXTRA ${m.ingredientName}'),
+                            if (cartItem.notes != null && cartItem.notes!.isNotEmpty) cartItem.notes!,
+                          ].join(' · ')
+                        : null,
+                    onRemove: () => onRemove(cartItem.menuItemId),
                   );
                 }),
-                if (existingItems.isEmpty && cartEntries.isEmpty)
+                if (existingItems.isEmpty && cart.items.isEmpty)
                   const Padding(
                     padding: EdgeInsets.all(AppSpacing.lg),
                     child: Text(
@@ -443,6 +558,7 @@ class _OrderLine extends StatelessWidget {
     required this.price,
     required this.isSent,
     required this.onRemove,
+    this.subtitle,
   });
 
   final String name;
@@ -450,6 +566,7 @@ class _OrderLine extends StatelessWidget {
   final double price;
   final bool isSent;
   final VoidCallback? onRemove;
+  final String? subtitle;
 
   @override
   Widget build(BuildContext context) {
@@ -459,6 +576,7 @@ class _OrderLine extends StatelessWidget {
         vertical: AppSpacing.xs,
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
             width: 24,
@@ -471,13 +589,26 @@ class _OrderLine extends StatelessWidget {
           ),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Text(
-              name,
-              style: AppTypography.bodyMd.copyWith(
-                color: isSent ? AppColors.textSecondary : AppColors.textPrimary,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: AppTypography.bodyMd.copyWith(
+                    color: isSent ? AppColors.textSecondary : AppColors.textPrimary,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (subtitle != null)
+                  Text(
+                    subtitle!,
+                    style: AppTypography.caption.copyWith(
+                      color: AppColors.warning,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
             ),
           ),
           Text(
@@ -500,5 +631,65 @@ class _OrderLine extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _ModifierInput extends StatefulWidget {
+  const _ModifierInput({required this.onAdd});
+  final void Function(String name, String action) onAdd;
+
+  @override
+  State<_ModifierInput> createState() => _ModifierInputState();
+}
+
+class _ModifierInputState extends State<_ModifierInput> {
+  final _ctrl = TextEditingController();
+  String _action = 'remove';
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'remove', label: Text('SIN')),
+            ButtonSegment(value: 'add', label: Text('EXTRA')),
+          ],
+          selected: {_action},
+          onSelectionChanged: (s) => setState(() => _action = s.first),
+          style: SegmentedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: TextField(
+            controller: _ctrl,
+            decoration: const InputDecoration(
+              isDense: true,
+              hintText: 'Ingrediente',
+            ),
+            onSubmitted: (_) => _submit(),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.add_circle, color: AppColors.primary),
+          onPressed: _submit,
+        ),
+      ],
+    );
+  }
+
+  void _submit() {
+    final text = _ctrl.text.trim();
+    if (text.isEmpty) return;
+    widget.onAdd(text, _action);
+    _ctrl.clear();
   }
 }

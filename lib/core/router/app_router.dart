@@ -64,6 +64,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => OrderScreen(
           tableId: state.uri.queryParameters['tableId'],
           tableLabel: state.uri.queryParameters['tableLabel'],
+          initialCustomerName: state.uri.queryParameters['customerName'],
         ),
       ),
       GoRoute(

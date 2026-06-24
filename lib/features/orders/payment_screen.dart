@@ -97,13 +97,13 @@ class _PaymentScreenState extends ConsumerState<PaymentScreen> {
       }
       payments = _splits
           .map((e) => {
-                'amount': e.amount.toStringAsFixed(2),
+                'amount': e.amount,
                 'paymentMethod': e.method.apiValue,
               })
           .toList();
     } else {
       payments = [
-        {'amount': widget.total, 'paymentMethod': _singleMethod.apiValue},
+        {'amount': _total, 'paymentMethod': _singleMethod.apiValue},
       ];
     }
 

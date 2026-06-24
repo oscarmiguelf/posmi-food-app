@@ -92,14 +92,14 @@ class OrdersRepository {
     return res.data!['data'] as Map<String, dynamic>;
   }
 
-  Future<void> updateStatus({
+  Future<void> updateItemStatus({
     required String orderId,
-    required String status,
-    required int version,
+    required String itemId,
+    required String itemStatus,
   }) async {
     await _dio.patch<void>(
-      '/orders/$orderId/status',
-      data: {'status': status, 'version': version},
+      '/orders/$orderId/items/$itemId/status',
+      data: {'itemStatus': itemStatus},
     );
   }
 }

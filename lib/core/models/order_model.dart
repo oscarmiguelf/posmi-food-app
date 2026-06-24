@@ -34,6 +34,9 @@ class OrderItemModel {
     this.stationName,
     this.notes,
     this.modifiers = const [],
+    this.itemStatus = 'pending',
+    this.readyQty = 0,
+    this.deliveredQty = 0,
   });
 
   final String id;
@@ -44,6 +47,9 @@ class OrderItemModel {
   final String? stationName;
   final String? notes;
   final List<ItemModifier> modifiers;
+  final String itemStatus; // pending | in_kitchen | ready | delivered
+  final int readyQty;
+  final int deliveredQty;
 
   factory OrderItemModel.fromJson(Map<String, dynamic> json) => OrderItemModel(
         id: json['id'] as String,
@@ -59,6 +65,9 @@ class OrderItemModel {
                 ?.map((e) => ItemModifier.fromJson(e as Map<String, dynamic>))
                 .toList() ??
             [],
+        itemStatus: json['itemStatus'] as String? ?? 'pending',
+        readyQty: json['readyQty'] as int? ?? 0,
+        deliveredQty: json['deliveredQty'] as int? ?? 0,
       );
 
   double get lineTotal =>
@@ -77,6 +86,17 @@ class OrderItemModel {
     }
     if (notes != null && notes!.isNotEmpty) parts.add(notes!);
     return parts.join(' · ');
+  }
+
+  bool get isReady => readyQty > deliveredQty;
+  bool get isFullyDelivered => deliveredQty >= quantity;
+  int get pendingDelivery => readyQty - deliveredQty;
+
+  String get progressLabel {
+    if (deliveredQty > 0 || readyQty > 0) {
+      return '$deliveredQty/$quantity entregados';
+    }
+    return '';
   }
 
   double get extrasTotal => modifiers

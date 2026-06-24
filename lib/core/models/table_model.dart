@@ -7,18 +7,21 @@ class TableModel {
     required this.label,
     required this.capacity,
     required this.status,
+    required this.version,
   });
 
   final String id;
   final String label;
   final int capacity;
   final String status; // free | occupied | bill_requested
+  final int version;
 
   factory TableModel.fromJson(Map<String, dynamic> json) => TableModel(
         id: json['id'] as String,
         label: json['label'] as String,
         capacity: json['capacity'] as int,
         status: json['status'] as String,
+        version: json['version'] as int? ?? 0,
       );
 
   Color get statusColor => switch (status) {

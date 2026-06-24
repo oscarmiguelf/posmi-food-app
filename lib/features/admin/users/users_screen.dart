@@ -115,15 +115,27 @@ class UsersScreen extends ConsumerWidget {
   }
 
   void _showCreateDialog(BuildContext context, WidgetRef ref) {
-    final rolesAsync = ref.read(_rolesProvider);
-    final stationsAsync = ref.read(_stationsListProvider);
     showDialog<void>(
       context: context,
-      builder: (_) => _CreateUserDialog(
-        roles: rolesAsync.value ?? [],
-        stations: stationsAsync.value ?? [],
-        onSave: (body) =>
-            ref.read(_usersProvider.notifier).create(body),
+      builder: (_) => Consumer(
+        builder: (ctx, dialogRef, _) {
+          final rolesAsync = dialogRef.watch(_rolesProvider);
+          final stationsAsync = dialogRef.watch(_stationsListProvider);
+          if (rolesAsync.isLoading || stationsAsync.isLoading) {
+            return const AlertDialog(
+              content: SizedBox(
+                height: 100,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            );
+          }
+          return _CreateUserDialog(
+            roles: rolesAsync.value ?? [],
+            stations: stationsAsync.value ?? [],
+            onSave: (body) =>
+                ref.read(_usersProvider.notifier).create(body),
+          );
+        },
       ),
     );
   }

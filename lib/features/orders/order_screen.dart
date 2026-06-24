@@ -8,6 +8,7 @@ import '../../design_system/tokens/app_spacing.dart';
 import '../../design_system/tokens/app_typography.dart';
 import '../menu/menu_repository.dart';
 import 'order_notifier.dart';
+import 'orders_repository.dart';
 
 class OrderScreen extends ConsumerStatefulWidget {
   const OrderScreen({
@@ -15,11 +16,13 @@ class OrderScreen extends ConsumerStatefulWidget {
     this.tableId,
     this.tableLabel,
     this.orderId,
+    this.initialCustomerName,
   });
 
   final String? tableId;
   final String? tableLabel;
   final String? orderId;
+  final String? initialCustomerName;
 
   @override
   ConsumerState<OrderScreen> createState() => _OrderScreenState();
@@ -31,15 +34,29 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final notifier = ref.read(orderNotifierProvider.notifier);
-      notifier.reset();
-      if (widget.orderId != null) {
-        await notifier.loadOrder(widget.orderId!);
-      } else if (widget.tableId != null) {
-        await notifier.findOpenOrderForTable(widget.tableId!);
-      }
-    });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadOrder());
+  }
+
+  @override
+  void didUpdateWidget(OrderScreen old) {
+    super.didUpdateWidget(old);
+    if (old.tableId != widget.tableId || old.orderId != widget.orderId) {
+      _loadOrder();
+    }
+  }
+
+  void _loadOrder() async {
+    final notifier = ref.read(orderNotifierProvider.notifier);
+    notifier.reset();
+    if (widget.initialCustomerName != null &&
+        widget.initialCustomerName!.isNotEmpty) {
+      notifier.setCustomerName(widget.initialCustomerName);
+    }
+    if (widget.orderId != null) {
+      await notifier.loadOrder(widget.orderId!);
+    } else if (widget.tableId != null) {
+      await notifier.findOpenOrderForTable(widget.tableId!);
+    }
   }
 
   Future<void> _sendOrder(List<MenuItemModel> menuItems) async {
@@ -50,7 +67,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
     if (order != null && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Orden enviada a cocina'),
+          content: Text('Productos ordenados'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -159,9 +176,11 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
 
     final label = widget.tableLabel ?? 'Orden';
 
+    final readyItems = cart.order?.items.where((i) => i.isReady && !i.isFullyDelivered).toList() ?? [];
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(label),
+        title: Text('Tomar orden — $label'),
         actions: [
           if (cart.order != null)
             TextButton.icon(
@@ -200,14 +219,31 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                   i.category == _selectedCategory && i.isAvailable)
               .toList();
 
-          return Row(
+          return Column(
             children: [
-              // LEFT: Category rail + menu grid
+              if (readyItems.isNotEmpty)
+                _ReadyItemsBanner(
+                  items: readyItems,
+                  onDeliverItem: (item) async {
+                    await ref.read(ordersRepositoryProvider).updateItemStatus(
+                          orderId: cart.order!.id,
+                          itemId: item.id,
+                          itemStatus: 'delivered',
+                        );
+                    ref
+                        .read(orderNotifierProvider.notifier)
+                        .loadOrder(cart.order!.id);
+                  },
+                ),
               Expanded(
-                flex: 3,
-                child: Column(
+                child: Row(
                   children: [
-                    _CategoryBar(
+                    // LEFT: Category rail + menu grid
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        children: [
+                          _CategoryBar(
                       categories: categories,
                       selected: _selectedCategory,
                       onSelect: (c) => setState(() => _selectedCategory = c),
@@ -226,16 +262,19 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                   ],
                 ),
               ),
-              // RIGHT: Order summary
-              SizedBox(
-                width: 300,
-                child: _OrderPanel(
-                  cart: cart,
-                  allItems: items,
-                  onRemove: (id) => ref
-                      .read(orderNotifierProvider.notifier)
-                      .removeFromCart(id),
-                  onSend: () => _sendOrder(items),
+                    // RIGHT: Order summary
+                    SizedBox(
+                      width: 300,
+                      child: _OrderPanel(
+                        cart: cart,
+                        allItems: items,
+                        onRemove: (id) => ref
+                            .read(orderNotifierProvider.notifier)
+                            .removeFromCart(id),
+                        onSend: () => _sendOrder(items),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -477,16 +516,32 @@ class _OrderPanel extends ConsumerWidget {
               children: [
                 // Already submitted items
                 ...existingItems.map(
-                  (item) => _OrderLine(
-                    name: item.menuItemName,
-                    qty: item.quantity,
-                    price: item.lineTotalWithExtras,
-                    isSent: true,
-                    onRemove: null,
-                    subtitle: item.modifiersSummary.isNotEmpty
-                        ? item.modifiersSummary
-                        : null,
-                  ),
+                  (item) {
+                    final parts = <String>[];
+                    if (item.modifiersSummary.isNotEmpty) {
+                      parts.add(item.modifiersSummary);
+                    }
+                    if (item.progressLabel.isNotEmpty) {
+                      parts.add(item.progressLabel);
+                    }
+                    return _OrderLine(
+                      name: item.menuItemName,
+                      qty: item.quantity,
+                      price: item.lineTotalWithExtras,
+                      isSent: true,
+                      onRemove: null,
+                      subtitle: parts.isNotEmpty ? parts.join(' · ') : null,
+                      statusIcon: switch (item.itemStatus) {
+                        'ready' => const Icon(Icons.dinner_dining,
+                            color: AppColors.success, size: 16),
+                        'delivered' => const Icon(Icons.check_circle,
+                            color: AppColors.textDisabled, size: 16),
+                        'in_kitchen' => const Icon(Icons.local_fire_department,
+                            color: AppColors.warning, size: 16),
+                        _ => null,
+                      },
+                    );
+                  },
                 ),
                 // Pending cart items
                 ...cart.items.map((cartItem) {
@@ -562,7 +617,7 @@ class _OrderPanel extends ConsumerWidget {
                       ),
                     )
                   : const Icon(Icons.send),
-              label: const Text('Enviar a cocina'),
+              label: const Text('Ordenar'),
             ),
           ),
         ],
@@ -579,6 +634,7 @@ class _OrderLine extends StatelessWidget {
     required this.isSent,
     required this.onRemove,
     this.subtitle,
+    this.statusIcon,
   });
 
   final String name;
@@ -587,6 +643,7 @@ class _OrderLine extends StatelessWidget {
   final bool isSent;
   final VoidCallback? onRemove;
   final String? subtitle;
+  final Widget? statusIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -631,6 +688,10 @@ class _OrderLine extends StatelessWidget {
               ],
             ),
           ),
+          if (statusIcon != null) ...[
+            statusIcon!,
+            const SizedBox(width: 4),
+          ],
           Text(
             '\$${price.toStringAsFixed(2)}',
             style: AppTypography.label,
@@ -739,5 +800,57 @@ class _ModifierInputState extends State<_ModifierInput> {
     widget.onAdd(text, _action, price != null && price > 0 ? price : null);
     _ctrl.clear();
     _priceCtrl.clear();
+  }
+}
+
+class _ReadyItemsBanner extends StatelessWidget {
+  const _ReadyItemsBanner({
+    required this.items,
+    required this.onDeliverItem,
+  });
+  final List<OrderItemModel> items;
+  final void Function(OrderItemModel) onDeliverItem;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.sm),
+      color: AppColors.success.withAlpha(30),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.notifications_active,
+                  color: AppColors.success, size: 20),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                '${items.length} platillo${items.length > 1 ? 's' : ''} listo${items.length > 1 ? 's' : ''} para entregar',
+                style: const TextStyle(
+                    color: AppColors.success,
+                    fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.xs),
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: items
+                .map((item) => ActionChip(
+                      avatar: const Icon(Icons.check_circle,
+                          color: AppColors.success, size: 16),
+                      label: Text(
+                        '${item.menuItemName}'
+                        '${item.pendingDelivery < item.quantity ? ' (${item.pendingDelivery})' : ''}',
+                      ),
+                      onPressed: () => onDeliverItem(item),
+                    ))
+                .toList(),
+          ),
+        ],
+      ),
+    );
   }
 }

@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../design_system/tokens/app_colors.dart';
 import '../../../design_system/tokens/app_spacing.dart';
 import '../../../design_system/tokens/app_typography.dart';
 import 'ingredients_repository.dart';
+
+final _decimalFilter =
+    FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'));
 
 final _ingredientsProvider =
     AsyncNotifierProvider<_IngredientsNotifier, List<IngredientModel>>(
@@ -249,6 +253,7 @@ class _CreateIngredientDialogState
                           ),
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
+                      inputFormatters: [_decimalFilter],
                       validator: (v) {
                         final n = double.tryParse(v ?? '');
                         if (n == null || n < 0) return 'Número válido';
@@ -268,6 +273,7 @@ class _CreateIngredientDialogState
                           const InputDecoration(labelText: 'Stock mínimo'),
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
+                      inputFormatters: [_decimalFilter],
                       validator: (v) {
                         final n = double.tryParse(v ?? '');
                         if (n == null || n < 0) return 'Número válido';
@@ -283,6 +289,7 @@ class _CreateIngredientDialogState
                           const InputDecoration(labelText: 'Stock inicial'),
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
+                      inputFormatters: [_decimalFilter],
                       validator: (v) {
                         final n = double.tryParse(v ?? '');
                         if (n == null || n < 0) return 'Número válido';
@@ -383,6 +390,7 @@ class _AdjustDialogState extends State<_AdjustDialog> {
                   labelText: 'Cantidad (${widget.ingredient.unit})'),
               keyboardType:
                   const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [_decimalFilter],
               validator: (v) =>
                   double.tryParse(v ?? '') == null ? 'Número inválido' : null,
             ),

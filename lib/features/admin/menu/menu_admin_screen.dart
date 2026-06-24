@@ -1,10 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/models/menu_item_model.dart';
+import '../../../core/providers/api_client_provider.dart';
 import '../../../design_system/tokens/app_colors.dart';
 import '../../../design_system/tokens/app_spacing.dart';
 import '../../../design_system/tokens/app_typography.dart';
 import 'menu_admin_repository.dart';
+
+final _stationsForMenuProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final dio = ref.watch(dioProvider);
+  final res = await dio.get<Map<String, dynamic>>('/stations');
+  return (res.data!['data'] as List<dynamic>)
+      .map((e) => e as Map<String, dynamic>)
+      .toList();
+});
+
+final _categoriesForMenuProvider =
+    FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final dio = ref.watch(dioProvider);
+  final res = await dio.get<Map<String, dynamic>>('/menu-item-types');
+  return (res.data!['data'] as List<dynamic>)
+      .map((e) => e as Map<String, dynamic>)
+      .toList();
+});
 
 final _menuAdminProvider =
     AsyncNotifierProvider<_MenuAdminNotifier, List<MenuItemModel>>(
@@ -125,13 +145,29 @@ class MenuAdminScreen extends ConsumerWidget {
 
   void _showForm(
       BuildContext context, WidgetRef ref, MenuItemModel? existing) {
+    final stations = ref.read(_stationsForMenuProvider).value ?? [];
+    final categories = ref.read(_categoriesForMenuProvider).value ?? [];
     showDialog<void>(
       context: context,
       builder: (_) => _MenuItemDialog(
         existing: existing,
-        onSave: (body) {
+        stations: stations,
+        categories: categories,
+        onSave: (body) async {
+          final hasRecipe = body.remove('_hasRecipe') as bool? ?? false;
           if (existing == null) {
-            ref.read(_menuAdminProvider.notifier).create(body);
+            await ref.read(_menuAdminProvider.notifier).create(body);
+            if (hasRecipe && context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Producto creado. Configura la receta y extras desde'
+                    ' el menú de edición del producto.',
+                  ),
+                  duration: Duration(seconds: 4),
+                ),
+              );
+            }
           } else {
             ref
                 .read(_menuAdminProvider.notifier)
@@ -207,9 +243,16 @@ class _MenuItemTile extends StatelessWidget {
 }
 
 class _MenuItemDialog extends StatefulWidget {
-  const _MenuItemDialog({required this.existing, required this.onSave});
+  const _MenuItemDialog({
+    required this.existing,
+    required this.stations,
+    required this.categories,
+    required this.onSave,
+  });
 
   final MenuItemModel? existing;
+  final List<Map<String, dynamic>> stations;
+  final List<Map<String, dynamic>> categories;
   final void Function(Map<String, dynamic>) onSave;
 
   @override
@@ -219,26 +262,35 @@ class _MenuItemDialog extends StatefulWidget {
 class _MenuItemDialogState extends State<_MenuItemDialog> {
   final _formKey = GlobalKey<FormState>();
   late final TextEditingController _name;
-  late final TextEditingController _category;
   late final TextEditingController _price;
+  String? _category;
   bool _available = true;
+  String? _stationId;
+  bool _hasRecipe = false;
+
+  static final _decimalFilter =
+      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'));
 
   @override
   void initState() {
     super.initState();
-    _name =
-        TextEditingController(text: widget.existing?.name ?? '');
-    _category =
-        TextEditingController(text: widget.existing?.category ?? '');
+    _name = TextEditingController(text: widget.existing?.name ?? '');
     _price = TextEditingController(
         text: widget.existing?.salePriceWithTax ?? '');
     _available = widget.existing?.isAvailable ?? true;
+    if (widget.existing != null) {
+      _category = widget.existing!.category;
+    } else if (widget.categories.isNotEmpty) {
+      _category = widget.categories.first['name'] as String;
+    }
+    if (widget.stations.length == 1) {
+      _stationId = widget.stations.first['id'] as String;
+    }
   }
 
   @override
   void dispose() {
     _name.dispose();
-    _category.dispose();
     _price.dispose();
     super.dispose();
   }
@@ -251,50 +303,105 @@ class _MenuItemDialogState extends State<_MenuItemDialog> {
       content: Form(
         key: _formKey,
         child: SizedBox(
-          width: 400,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextFormField(
-                controller: _name,
-                decoration: const InputDecoration(labelText: 'Nombre'),
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Requerido' : null,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _category,
-                decoration: const InputDecoration(labelText: 'Categoría'),
-                validator: (v) =>
-                    v == null || v.isEmpty ? 'Requerido' : null,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              TextFormField(
-                controller: _price,
-                decoration: const InputDecoration(
-                    labelText: 'Precio con IVA (\$)',
-                    hintText: '0.00'),
-                keyboardType:
-                    const TextInputType.numberWithOptions(decimal: true),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Requerido';
-                  if (double.tryParse(v) == null) return 'Número inválido';
-                  return null;
-                },
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Row(
-                children: [
-                  Switch(
-                    value: _available,
-                    onChanged: (v) => setState(() => _available = v),
-                    activeThumbColor: AppColors.success,
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: _name,
+                  decoration:
+                      const InputDecoration(labelText: 'Nombre'),
+                  validator: (v) =>
+                      v == null || v.isEmpty ? 'Requerido' : null,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                DropdownButtonFormField<String>(
+                  initialValue: _category,
+                  decoration: const InputDecoration(
+                    labelText: 'Categoría',
                   ),
-                  const SizedBox(width: AppSpacing.sm),
-                  const Text('Disponible'),
+                  hint: const Text('Selecciona categoría'),
+                  items: widget.categories
+                      .map((c) => DropdownMenuItem<String>(
+                            value: c['name'] as String,
+                            child: Text(c['name'] as String),
+                          ))
+                      .toList(),
+                  onChanged: (v) => setState(() => _category = v),
+                  validator: (v) =>
+                      v == null ? 'Selecciona una categoría' : null,
+                ),
+                const SizedBox(height: AppSpacing.md),
+                TextFormField(
+                  controller: _price,
+                  decoration: const InputDecoration(
+                    labelText: 'Precio con IVA',
+                    prefixText: '\$ ',
+                  ),
+                  keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true),
+                  inputFormatters: [_decimalFilter],
+                  validator: (v) {
+                    final n = double.tryParse(v ?? '');
+                    if (n == null || n <= 0) return 'Precio válido > 0';
+                    return null;
+                  },
+                ),
+                if (isNew && widget.stations.isNotEmpty) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  DropdownButtonFormField<String>(
+                    initialValue: _stationId,
+                    decoration: const InputDecoration(
+                      labelText: 'Estación de preparación',
+                    ),
+                    hint: const Text('Selecciona estación'),
+                    items: widget.stations
+                        .map((s) => DropdownMenuItem<String>(
+                              value: s['id'] as String,
+                              child: Text(s['name'] as String? ?? ''),
+                            ))
+                        .toList(),
+                    onChanged: (v) => setState(() => _stationId = v),
+                    validator: (v) =>
+                        v == null ? 'Selecciona una estación' : null,
+                  ),
                 ],
-              ),
-            ],
+                if (isNew) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Tiene receta (ingredientes)'),
+                    subtitle: Text(
+                      _hasRecipe
+                          ? 'Configurarás la receta después de crear'
+                          : 'Producto sin desglose de ingredientes',
+                      style: TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    value: _hasRecipe,
+                    onChanged: (v) => setState(() => _hasRecipe = v),
+                  ),
+                ],
+                if (!isNew) ...[
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    children: [
+                      Switch(
+                        value: _available,
+                        onChanged: (v) =>
+                            setState(() => _available = v),
+                        activeThumbColor: AppColors.success,
+                      ),
+                      const SizedBox(width: AppSpacing.sm),
+                      const Text('Disponible'),
+                    ],
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),
@@ -305,13 +412,20 @@ class _MenuItemDialogState extends State<_MenuItemDialog> {
         ElevatedButton(
           onPressed: () {
             if (!_formKey.currentState!.validate()) return;
-            widget.onSave({
+            final body = <String, dynamic>{
               'name': _name.text.trim(),
-              'category': _category.text.trim(),
-              'salePriceWithTax': _price.text.trim(),
-              'isAvailable': _available,
-              if (widget.existing != null) 'version': 0,
-            });
+              'category': _category!,
+              'salePriceWithTax':
+                  double.parse(_price.text.trim()),
+            };
+            if (isNew) {
+              body['stationIds'] = [_stationId];
+              body['_hasRecipe'] = _hasRecipe;
+            } else {
+              body['isAvailable'] = _available;
+              body['version'] = 0;
+            }
+            widget.onSave(body);
             Navigator.pop(context);
           },
           child: Text(isNew ? 'Crear' : 'Guardar'),

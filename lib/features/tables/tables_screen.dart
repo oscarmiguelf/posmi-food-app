@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/models/table_model.dart';
+import '../../core/providers/api_client_provider.dart';
 import '../../design_system/tokens/app_colors.dart';
 import '../../design_system/tokens/app_spacing.dart';
 import 'tables_provider.dart';
@@ -10,15 +11,69 @@ import 'widgets/table_card.dart';
 class TablesScreen extends ConsumerWidget {
   const TablesScreen({super.key});
 
-  void _onTableTap(BuildContext context, TableModel table) {
+  void _onTableTap(BuildContext context, WidgetRef ref, TableModel table) {
     if (table.status == 'free') {
+      _showAssignDialog(context, ref, table);
+    } else {
       context.push(
         '/orders/new?tableId=${table.id}&tableLabel=${Uri.encodeComponent(table.label)}',
       );
-    } else {
-      // occupied or bill_requested — open existing order
+    }
+  }
+
+  void _showAssignDialog(
+      BuildContext context, WidgetRef ref, TableModel table) {
+    final nameCtrl = TextEditingController();
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Asignar ${table.label}'),
+        content: SizedBox(
+          width: 320,
+          child: TextField(
+            controller: nameCtrl,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Nombre del cliente (opcional)',
+              hintText: 'Juan, Mesa 3, etc.',
+              prefixIcon: Icon(Icons.person_outline),
+            ),
+            onSubmitted: (_) {
+              Navigator.pop(ctx);
+              _assignAndNavigate(context, ref, table, nameCtrl.text.trim());
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _assignAndNavigate(context, ref, table, nameCtrl.text.trim());
+            },
+            child: const Text('Asignar mesa'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _assignAndNavigate(BuildContext context, WidgetRef ref,
+      TableModel table, String customerName) async {
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.patch<void>('/tables/${table.id}/status',
+          data: {'status': 'occupied', 'version': table.version});
+      ref.read(tablesProvider.notifier).refresh();
+    } catch (_) {}
+    if (context.mounted) {
+      final encodedLabel = Uri.encodeComponent(table.label);
+      final encodedName = Uri.encodeComponent(customerName);
       context.push(
-        '/orders/new?tableId=${table.id}&tableLabel=${Uri.encodeComponent(table.label)}',
+        '/orders/new?tableId=${table.id}&tableLabel=$encodedLabel'
+        '${customerName.isNotEmpty ? '&customerName=$encodedName' : ''}',
       );
     }
   }
@@ -51,7 +106,7 @@ class TablesScreen extends ConsumerWidget {
         ),
         data: (tables) => _TablesGrid(
           tables: tables,
-          onTap: (t) => _onTableTap(context, t),
+          onTap: (t) => _onTableTap(context, ref, t),
         ),
       ),
       bottomNavigationBar: _Legend(),

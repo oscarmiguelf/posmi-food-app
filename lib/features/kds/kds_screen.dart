@@ -220,8 +220,16 @@ class _KdsCard extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              item.menuItemName,
-                              style: AppTypography.bodyLg,
+                              '${item.menuItemName}'
+                              '${item.quantity > 1 ? ' (${item.readyQty}/${item.quantity})' : ''}',
+                              style: AppTypography.bodyLg.copyWith(
+                                decoration: item.readyQty >= item.quantity
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                                color: item.readyQty >= item.quantity
+                                    ? AppColors.textDisabled
+                                    : null,
+                              ),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -236,53 +244,37 @@ class _KdsCard extends ConsumerWidget {
                           ],
                         ),
                       ),
+                      if (item.readyQty < item.quantity)
+                        SizedBox(
+                          width: 60,
+                          height: 28,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              padding: EdgeInsets.zero,
+                              foregroundColor: AppColors.success,
+                              side: const BorderSide(color: AppColors.success),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                            onPressed: () =>
+                                _markItemReady(context, ref, item, 1),
+                            child: const Text('Listo', style: TextStyle(fontSize: 12)),
+                          ),
+                        ),
                     ],
                   ),
                 );
               },
             ),
           ),
-          // Mark items as ready — one unit at a time
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.sm),
-            child: Column(
-              children: [
-                ...items.where((i) => i.readyQty < i.quantity).map(
-                  (item) {
-                    final pending = item.quantity - item.readyQty;
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 4),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          icon: const Icon(Icons.check, size: 16),
-                          label: Text(
-                            '${item.menuItemName} '
-                            '(${item.readyQty}/${item.quantity})'
-                            '${pending > 1 ? ' — marcar 1' : ''}',
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.success,
-                            side: const BorderSide(
-                                color: AppColors.success),
-                            visualDensity: VisualDensity.compact,
-                          ),
-                          onPressed: () =>
-                              _markItemReady(context, ref, item, 1),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-                if (items.every((i) => i.readyQty >= i.quantity))
-                  const Text('Todo listo',
-                      style: TextStyle(
-                          color: AppColors.success,
-                          fontWeight: FontWeight.bold)),
-              ],
+          if (items.every((i) => i.readyQty >= i.quantity))
+            const Padding(
+              padding: EdgeInsets.all(AppSpacing.sm),
+              child: Text('Todo listo',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: AppColors.success,
+                      fontWeight: FontWeight.bold)),
             ),
-          ),
         ],
       ),
     );

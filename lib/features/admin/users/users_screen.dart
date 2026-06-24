@@ -164,6 +164,12 @@ class _CreateUserDialogState extends State<_CreateUserDialog> {
   String? _roleId;
   String? _stationId;
 
+  bool get _isKitchenRole {
+    if (_roleId == null) return false;
+    final role = widget.roles.where((r) => r['id'] == _roleId).firstOrNull;
+    return role?['name']?.toString().toLowerCase() == 'cocina';
+  }
+
   @override
   void dispose() {
     _name.dispose();
@@ -220,12 +226,12 @@ class _CreateUserDialogState extends State<_CreateUserDialog> {
                 onChanged: (v) => setState(() => _roleId = v),
                 validator: (v) => v == null ? 'Selecciona un rol' : null,
               ),
-              if (widget.stations.isNotEmpty) ...[
+              if (_isKitchenRole && widget.stations.isNotEmpty) ...[
                 const SizedBox(height: AppSpacing.sm),
                 DropdownButtonFormField<String>(
                   initialValue: _stationId,
                   decoration: const InputDecoration(
-                    labelText: 'Estación (solo para rol Cocina)',
+                    labelText: 'Estación',
                   ),
                   hint: const Text('Sin estación asignada'),
                   items: [

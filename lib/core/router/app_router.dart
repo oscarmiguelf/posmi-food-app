@@ -22,6 +22,7 @@ import '../../features/profile/profile_screen.dart';
 import '../../features/cash/cash_screen.dart';
 import '../../features/admin/suppliers/suppliers_screen.dart';
 import '../../features/admin/purchase_orders/purchase_orders_screen.dart';
+import '../../features/admin/menu/recipe_screen.dart';
 import '../../features/admin/menu_categories/menu_categories_screen.dart';
 import '../../features/digital_menu/digital_menu_screen.dart';
 
@@ -86,6 +87,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           total: state.uri.queryParameters['total'] ?? '0',
           version:
               int.tryParse(state.uri.queryParameters['version'] ?? '0') ?? 0,
+        ),
+      ),
+      GoRoute(
+        path: '/admin/menu-items/:id/recipe',
+        builder: (context, state) => RecipeScreen(
+          menuItemId: state.pathParameters['id']!,
+          menuItemName:
+              state.uri.queryParameters['name'] ?? 'Producto',
         ),
       ),
       GoRoute(

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/models/menu_item_model.dart';
 import '../../../core/providers/api_client_provider.dart';
 import '../../../design_system/tokens/app_colors.dart';
@@ -245,6 +246,15 @@ class _MenuItemTile extends StatelessWidget {
             value: item.isAvailable,
             onChanged: onToggle,
             activeThumbColor: AppColors.success,
+          ),
+          IconButton(
+            icon: const Icon(Icons.restaurant_menu,
+                color: AppColors.primary),
+            tooltip: 'Receta y extras',
+            onPressed: () => context.push(
+              '/admin/menu-items/${item.id}/recipe'
+              '?name=${Uri.encodeComponent(item.name)}',
+            ),
           ),
           IconButton(
               icon: const Icon(Icons.edit_outlined),

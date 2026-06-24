@@ -65,15 +65,17 @@ class OrdersRepository {
         .toList();
   }
 
-  Future<OrderModel> addItems({
+  Future<void> addItems({
     required String orderId,
     required List<Map<String, dynamic>> items,
   }) async {
-    final res = await _dio.post<Map<String, dynamic>>(
+    await _dio.post<Map<String, dynamic>>(
       '/orders/$orderId/items',
-      data: {'items': items},
+      data: {
+        'idempotencyKey': _uuid.v4(),
+        'items': items,
+      },
     );
-    return OrderModel.fromJson(res.data!['data'] as Map<String, dynamic>);
   }
 
   Future<Map<String, dynamic>> closeOrder({

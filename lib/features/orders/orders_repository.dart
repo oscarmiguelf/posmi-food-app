@@ -96,10 +96,14 @@ class OrdersRepository {
     required String orderId,
     required String itemId,
     required String itemStatus,
+    int? qty,
   }) async {
     await _dio.patch<void>(
       '/orders/$orderId/items/$itemId/status',
-      data: {'itemStatus': itemStatus},
+      data: {
+        'itemStatus': itemStatus,
+        'qty': ?qty,
+      },
     );
   }
 }

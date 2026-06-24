@@ -229,6 +229,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                           orderId: cart.order!.id,
                           itemId: item.id,
                           itemStatus: 'delivered',
+                          qty: 1,
                         );
                     ref
                         .read(orderNotifierProvider.notifier)

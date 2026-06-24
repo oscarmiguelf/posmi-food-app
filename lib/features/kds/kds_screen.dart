@@ -242,32 +242,40 @@ class _KdsCard extends ConsumerWidget {
               },
             ),
           ),
-          // Mark items as ready
+          // Mark items as ready — one unit at a time
           Padding(
             padding: const EdgeInsets.all(AppSpacing.sm),
             child: Column(
               children: [
-                ...items.where((i) => i.itemStatus != 'ready' && i.itemStatus != 'delivered').map(
-                  (item) => Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.check, size: 16),
-                        label: Text('${item.menuItemName} lista',
-                            overflow: TextOverflow.ellipsis),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: AppColors.success,
-                          side: const BorderSide(color: AppColors.success),
-                          visualDensity: VisualDensity.compact,
+                ...items.where((i) => i.readyQty < i.quantity).map(
+                  (item) {
+                    final pending = item.quantity - item.readyQty;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          icon: const Icon(Icons.check, size: 16),
+                          label: Text(
+                            '${item.menuItemName} '
+                            '(${item.readyQty}/${item.quantity})'
+                            '${pending > 1 ? ' — marcar 1' : ''}',
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.success,
+                            side: const BorderSide(
+                                color: AppColors.success),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                          onPressed: () =>
+                              _markItemReady(context, ref, item, 1),
                         ),
-                        onPressed: () =>
-                            _markItemReady(context, ref, item),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
-                if (items.every((i) => i.itemStatus == 'ready' || i.itemStatus == 'delivered'))
+                if (items.every((i) => i.readyQty >= i.quantity))
                   const Text('Todo listo',
                       style: TextStyle(
                           color: AppColors.success,
@@ -286,12 +294,13 @@ class _KdsCard extends ConsumerWidget {
   }
 
   Future<void> _markItemReady(
-      BuildContext context, WidgetRef ref, OrderItemModel item) async {
+      BuildContext context, WidgetRef ref, OrderItemModel item, int qty) async {
     try {
       await ref.read(ordersRepositoryProvider).updateItemStatus(
             orderId: order.id,
             itemId: item.id,
             itemStatus: 'ready',
+            qty: qty,
           );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

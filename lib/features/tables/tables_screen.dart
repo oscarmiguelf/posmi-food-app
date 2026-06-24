@@ -64,13 +64,8 @@ class TablesScreen extends ConsumerWidget {
       TableModel table, String customerName) async {
     final dio = ref.read(dioProvider);
     try {
-      // Refresh tables to get current version
-      await ref.read(tablesProvider.notifier).refresh();
-      final tables = ref.read(tablesProvider).value ?? [];
-      final fresh = tables.where((t) => t.id == table.id).firstOrNull;
-      final version = fresh?.version ?? table.version;
       await dio.patch<void>('/tables/${table.id}/status',
-          data: {'status': 'occupied', 'version': version});
+          data: {'status': 'occupied'});
     } catch (_) {}
     ref.read(tablesProvider.notifier).refresh();
     if (context.mounted) {

@@ -184,19 +184,20 @@ class _CreateIngredientDialog extends StatefulWidget {
       _CreateIngredientDialogState();
 }
 
+const _units = ['kilogramo', 'gramo', 'litro', 'mililitro', 'pieza'];
+
 class _CreateIngredientDialogState
     extends State<_CreateIngredientDialog> {
   final _formKey = GlobalKey<FormState>();
   final _name = TextEditingController();
-  final _unit = TextEditingController();
   final _cost = TextEditingController();
   final _minStock = TextEditingController();
   final _initialStock = TextEditingController();
+  String _unit = _units.first;
 
   @override
   void dispose() {
     _name.dispose();
-    _unit.dispose();
     _cost.dispose();
     _minStock.dispose();
     _initialStock.dispose();
@@ -224,12 +225,17 @@ class _CreateIngredientDialogState
               Row(
                 children: [
                   Expanded(
-                    child: TextFormField(
-                      controller: _unit,
+                    child: DropdownButtonFormField<String>(
+                      initialValue: _unit,
                       decoration:
-                          const InputDecoration(labelText: 'Unidad (kg, L, pz)'),
-                      validator: (v) =>
-                          v == null || v.isEmpty ? 'Requerido' : null,
+                          const InputDecoration(labelText: 'Unidad'),
+                      items: _units
+                          .map((u) => DropdownMenuItem(
+                              value: u, child: Text(u)))
+                          .toList(),
+                      onChanged: (v) {
+                        if (v != null) setState(() => _unit = v);
+                      },
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -237,11 +243,17 @@ class _CreateIngredientDialogState
                     child: TextFormField(
                       controller: _cost,
                       decoration:
-                          const InputDecoration(labelText: 'Costo/unidad'),
+                          const InputDecoration(
+                            labelText: 'Costo/unidad',
+                            prefixText: '\$ ',
+                          ),
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
-                      validator: (v) =>
-                          double.tryParse(v ?? '') == null ? 'Número' : null,
+                      validator: (v) {
+                        final n = double.tryParse(v ?? '');
+                        if (n == null || n < 0) return 'Número válido';
+                        return null;
+                      },
                     ),
                   ),
                 ],
@@ -256,8 +268,11 @@ class _CreateIngredientDialogState
                           const InputDecoration(labelText: 'Stock mínimo'),
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
-                      validator: (v) =>
-                          double.tryParse(v ?? '') == null ? 'Número' : null,
+                      validator: (v) {
+                        final n = double.tryParse(v ?? '');
+                        if (n == null || n < 0) return 'Número válido';
+                        return null;
+                      },
                     ),
                   ),
                   const SizedBox(width: AppSpacing.md),
@@ -268,8 +283,11 @@ class _CreateIngredientDialogState
                           const InputDecoration(labelText: 'Stock inicial'),
                       keyboardType: const TextInputType.numberWithOptions(
                           decimal: true),
-                      validator: (v) =>
-                          double.tryParse(v ?? '') == null ? 'Número' : null,
+                      validator: (v) {
+                        final n = double.tryParse(v ?? '');
+                        if (n == null || n < 0) return 'Número válido';
+                        return null;
+                      },
                     ),
                   ),
                 ],
@@ -287,10 +305,10 @@ class _CreateIngredientDialogState
             if (!_formKey.currentState!.validate()) return;
             widget.onSave({
               'name': _name.text.trim(),
-              'unit': _unit.text.trim(),
-              'unitCost': double.parse(_cost.text),
-              'minStock': double.parse(_minStock.text),
-              'stockQuantity': double.parse(_initialStock.text),
+              'unit': _unit,
+              'unitCost': double.parse(_cost.text.trim()),
+              'minStock': double.parse(_minStock.text.trim()),
+              'stockQuantity': double.parse(_initialStock.text.trim()),
             });
             Navigator.pop(context);
           },

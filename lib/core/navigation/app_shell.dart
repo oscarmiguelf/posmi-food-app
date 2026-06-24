@@ -109,7 +109,7 @@ class AppShell extends ConsumerWidget {
               path: '/admin/purchase-orders'),
           const _NavItem(
               icon: Icons.table_bar_outlined,
-              label: 'Mesas',
+              label: 'Config. mesas',
               path: '/admin/tables'),
           const _NavItem(
               icon: Icons.kitchen_outlined,

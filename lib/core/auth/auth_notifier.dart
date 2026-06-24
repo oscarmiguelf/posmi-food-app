@@ -47,8 +47,16 @@ class AuthNotifier extends Notifier<AuthState> {
   String _extractError(DioException e) {
     final data = e.response?.data;
     if (data is Map) {
-      return (data['message'] as String?) ?? 'Error al iniciar sesión';
+      final msg = data['message'];
+      if (msg is String) {
+        if (msg.contains('Invalid credentials')) return 'Correo o contraseña incorrectos';
+        return msg;
+      }
     }
-    return 'Sin conexión. Verifica la red.';
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.connectionError) {
+      return 'Sin conexión. Verifica la red.';
+    }
+    return 'Error al iniciar sesión';
   }
 }

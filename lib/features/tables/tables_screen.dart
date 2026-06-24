@@ -16,7 +16,7 @@ class TablesScreen extends ConsumerWidget {
       _showAssignDialog(context, ref, table);
     } else {
       context.go(
-        '/orders/new?tableId=${table.id}&tableLabel=${Uri.encodeComponent(table.label)}',
+        '/orders/table/${table.id}?tableLabel=${Uri.encodeComponent(table.label)}',
       );
     }
   }
@@ -72,7 +72,7 @@ class TablesScreen extends ConsumerWidget {
       final encodedLabel = Uri.encodeComponent(table.label);
       final encodedName = Uri.encodeComponent(customerName);
       context.go(
-        '/orders/new?tableId=${table.id}&tableLabel=$encodedLabel'
+        '/orders/table/${table.id}?tableLabel=$encodedLabel'
         '${customerName.isNotEmpty ? '&customerName=$encodedName' : ''}',
       );
     }

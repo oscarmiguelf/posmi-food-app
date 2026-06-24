@@ -61,9 +61,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       // Full-screen routes — no shell
       GoRoute(
-        path: '/orders/new',
+        path: '/orders/table/:tableId',
         builder: (context, state) {
-          final tableId = state.uri.queryParameters['tableId'];
+          final tableId = state.pathParameters['tableId']!;
           return OrderScreen(
             key: ValueKey('order-$tableId'),
             tableId: tableId,

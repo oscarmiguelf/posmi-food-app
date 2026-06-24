@@ -15,7 +15,7 @@ class TablesScreen extends ConsumerWidget {
     if (table.status == 'free') {
       _showAssignDialog(context, ref, table);
     } else {
-      context.push(
+      context.go(
         '/orders/new?tableId=${table.id}&tableLabel=${Uri.encodeComponent(table.label)}',
       );
     }
@@ -71,7 +71,7 @@ class TablesScreen extends ConsumerWidget {
     if (context.mounted) {
       final encodedLabel = Uri.encodeComponent(table.label);
       final encodedName = Uri.encodeComponent(customerName);
-      context.push(
+      context.go(
         '/orders/new?tableId=${table.id}&tableLabel=$encodedLabel'
         '${customerName.isNotEmpty ? '&customerName=$encodedName' : ''}',
       );

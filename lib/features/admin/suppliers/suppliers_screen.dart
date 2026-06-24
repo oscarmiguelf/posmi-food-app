@@ -235,10 +235,10 @@ class SuppliersScreen extends ConsumerWidget {
           FilledButton(
             onPressed: () {
               if (!formKey.currentState!.validate()) return;
-              final body = {
+              final body = <String, dynamic>{
                 'name': nameCtrl.text.trim(),
                 if (contactCtrl.text.trim().isNotEmpty)
-                  'contactName': contactCtrl.text.trim(),
+                  'contact': contactCtrl.text.trim(),
                 if (phoneCtrl.text.trim().isNotEmpty)
                   'phone': phoneCtrl.text.trim(),
                 if (emailCtrl.text.trim().isNotEmpty)
@@ -247,7 +247,7 @@ class SuppliersScreen extends ConsumerWidget {
               if (existing == null) {
                 ref.read(_suppliersProvider.notifier).create(body);
               } else {
-                body['version'] = '0';
+                body['version'] = 0;
                 ref
                     .read(_suppliersProvider.notifier)
                     .edit(existing.id, body);

@@ -145,34 +145,48 @@ class MenuAdminScreen extends ConsumerWidget {
 
   void _showForm(
       BuildContext context, WidgetRef ref, MenuItemModel? existing) {
-    final stations = ref.read(_stationsForMenuProvider).value ?? [];
-    final categories = ref.read(_categoriesForMenuProvider).value ?? [];
     showDialog<void>(
       context: context,
-      builder: (_) => _MenuItemDialog(
-        existing: existing,
-        stations: stations,
-        categories: categories,
-        onSave: (body) async {
-          final hasRecipe = body.remove('_hasRecipe') as bool? ?? false;
-          if (existing == null) {
-            await ref.read(_menuAdminProvider.notifier).create(body);
-            if (hasRecipe && context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Producto creado. Configura la receta y extras desde'
-                    ' el menú de edición del producto.',
-                  ),
-                  duration: Duration(seconds: 4),
-                ),
-              );
-            }
-          } else {
-            ref
-                .read(_menuAdminProvider.notifier)
-                .editItem(existing.id, body);
+      builder: (_) => Consumer(
+        builder: (ctx, dialogRef, _) {
+          final stationsAsync = dialogRef.watch(_stationsForMenuProvider);
+          final categoriesAsync =
+              dialogRef.watch(_categoriesForMenuProvider);
+          if (stationsAsync.isLoading || categoriesAsync.isLoading) {
+            return const AlertDialog(
+              content: SizedBox(
+                height: 100,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            );
           }
+          return _MenuItemDialog(
+            existing: existing,
+            stations: stationsAsync.value ?? [],
+            categories: categoriesAsync.value ?? [],
+            onSave: (body) async {
+              final hasRecipe =
+                  body.remove('_hasRecipe') as bool? ?? false;
+              if (existing == null) {
+                await ref.read(_menuAdminProvider.notifier).create(body);
+                if (hasRecipe && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'Producto creado. Configura la receta y extras'
+                        ' desde el menú de edición del producto.',
+                      ),
+                      duration: Duration(seconds: 4),
+                    ),
+                  );
+                }
+              } else {
+                ref
+                    .read(_menuAdminProvider.notifier)
+                    .editItem(existing.id, body);
+              }
+            },
+          );
         },
       ),
     );

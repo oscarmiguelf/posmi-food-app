@@ -179,7 +179,8 @@ class OrderNotifier extends Notifier<CartState> {
     try {
       OrderModel order;
       if (state.order != null) {
-        order = await _repo.addItems(orderId: state.order!.id, items: apiItems);
+        await _repo.addItems(orderId: state.order!.id, items: apiItems);
+        order = await _repo.getOrder(state.order!.id);
       } else {
         order = await _repo.createOrder(
           tableId: tableId,

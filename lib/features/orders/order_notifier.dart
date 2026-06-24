@@ -88,9 +88,9 @@ class CartState {
 }
 
 final orderNotifierProvider =
-    NotifierProvider<OrderNotifier, CartState>(OrderNotifier.new);
+    AutoDisposeNotifierProvider<OrderNotifier, CartState>(OrderNotifier.new);
 
-class OrderNotifier extends Notifier<CartState> {
+class OrderNotifier extends AutoDisposeNotifier<CartState> {
   @override
   CartState build() => const CartState();
 

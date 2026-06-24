@@ -34,15 +34,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   @override
   void initState() {
     super.initState();
-    // Reset synchronously before first build
-    ref.read(orderNotifierProvider.notifier).reset();
     WidgetsBinding.instance.addPostFrameCallback((_) => _loadOrder());
-  }
-
-  @override
-  void dispose() {
-    ref.read(orderNotifierProvider.notifier).reset();
-    super.dispose();
   }
 
   void _loadOrder() async {

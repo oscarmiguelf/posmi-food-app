@@ -62,12 +62,17 @@ class TablesScreen extends ConsumerWidget {
 
   Future<void> _assignAndNavigate(BuildContext context, WidgetRef ref,
       TableModel table, String customerName) async {
+    final dio = ref.read(dioProvider);
     try {
-      final dio = ref.read(dioProvider);
+      // Refresh tables to get current version
+      await ref.read(tablesProvider.notifier).refresh();
+      final tables = ref.read(tablesProvider).value ?? [];
+      final fresh = tables.where((t) => t.id == table.id).firstOrNull;
+      final version = fresh?.version ?? table.version;
       await dio.patch<void>('/tables/${table.id}/status',
-          data: {'status': 'occupied', 'version': table.version});
-      ref.read(tablesProvider.notifier).refresh();
+          data: {'status': 'occupied', 'version': version});
     } catch (_) {}
+    ref.read(tablesProvider.notifier).refresh();
     if (context.mounted) {
       final encodedLabel = Uri.encodeComponent(table.label);
       final encodedName = Uri.encodeComponent(customerName);

@@ -31,6 +31,8 @@ class OrderScreen extends ConsumerStatefulWidget {
 class _OrderScreenState extends ConsumerState<OrderScreen> {
   String _selectedCategory = '';
 
+  String get _key => widget.tableId ?? widget.orderId ?? 'new';
+
   @override
   void initState() {
     super.initState();
@@ -38,7 +40,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   }
 
   void _loadOrder() async {
-    final notifier = ref.read(orderNotifierProvider.notifier);
+    final notifier = ref.read(orderNotifierProvider(_key).notifier);
     if (widget.initialCustomerName != null &&
         widget.initialCustomerName!.isNotEmpty) {
       notifier.setCustomerName(widget.initialCustomerName);
@@ -51,7 +53,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
   }
 
   Future<void> _sendOrder(List<MenuItemModel> menuItems) async {
-    final order = await ref.read(orderNotifierProvider.notifier).submitCart(
+    final order = await ref.read(orderNotifierProvider(_key).notifier).submitCart(
           tableId: widget.tableId,
           menuItems: menuItems,
         );
@@ -142,7 +144,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                 child: const Text('Cancelar')),
             FilledButton(
               onPressed: () {
-                ref.read(orderNotifierProvider.notifier).addToCart(
+                ref.read(orderNotifierProvider(_key).notifier).addToCart(
                       item,
                       notes: notesCtrl.text.trim().isEmpty
                           ? null
@@ -162,7 +164,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cart = ref.watch(orderNotifierProvider);
+    final cart = ref.watch(orderNotifierProvider(_key));
     final menuAsync = ref.watch(menuItemsProvider);
 
     final label = widget.tableLabel ?? 'Orden';
@@ -223,7 +225,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                           qty: 1,
                         );
                     ref
-                        .read(orderNotifierProvider.notifier)
+                        .read(orderNotifierProvider(_key).notifier)
                         .loadOrder(cart.order!.id);
                   },
                 ),
@@ -245,7 +247,7 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                         items: filtered,
                         cart: cart,
                         onAdd: (item) => ref
-                            .read(orderNotifierProvider.notifier)
+                            .read(orderNotifierProvider(_key).notifier)
                             .addToCart(item),
                         onCustomize: (item) =>
                             _showCustomizeDialog(context, ref, item),
@@ -260,8 +262,9 @@ class _OrderScreenState extends ConsumerState<OrderScreen> {
                       child: _OrderPanel(
                         cart: cart,
                         allItems: items,
+                        tableKey: _key,
                         onRemove: (id) => ref
-                            .read(orderNotifierProvider.notifier)
+                            .read(orderNotifierProvider(_key).notifier)
                             .removeFromCart(id),
                         onSend: () => _sendOrder(items),
                       ),
@@ -446,12 +449,14 @@ class _OrderPanel extends ConsumerWidget {
   const _OrderPanel({
     required this.cart,
     required this.allItems,
+    required this.tableKey,
     required this.onRemove,
     required this.onSend,
   });
 
   final CartState cart;
   final List<MenuItemModel> allItems;
+  final String tableKey;
   final void Function(String) onRemove;
   final VoidCallback onSend;
 
@@ -497,7 +502,7 @@ class _OrderPanel extends ConsumerWidget {
                   prefixIcon: Icon(Icons.person_outline, size: 18),
                 ),
                 onChanged: (v) => ref
-                    .read(orderNotifierProvider.notifier)
+                    .read(orderNotifierProvider(tableKey).notifier)
                     .setCustomerName(v.trim().isEmpty ? null : v.trim()),
               ),
             ),

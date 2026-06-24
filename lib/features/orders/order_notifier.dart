@@ -87,12 +87,12 @@ class CartState {
       );
 }
 
-final orderNotifierProvider =
-    AutoDisposeNotifierProvider<OrderNotifier, CartState>(OrderNotifier.new);
+final orderNotifierProvider = AutoDisposeNotifierProviderFamily<
+    OrderNotifier, CartState, String>(OrderNotifier.new);
 
-class OrderNotifier extends AutoDisposeNotifier<CartState> {
+class OrderNotifier extends AutoDisposeFamilyNotifier<CartState, String> {
   @override
-  CartState build() => const CartState();
+  CartState build(String tableKey) => const CartState();
 
   OrdersRepository get _repo => ref.read(ordersRepositoryProvider);
 

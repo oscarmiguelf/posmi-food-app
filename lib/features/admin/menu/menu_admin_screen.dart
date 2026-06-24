@@ -6,6 +6,7 @@ import '../../../core/providers/api_client_provider.dart';
 import '../../../design_system/tokens/app_colors.dart';
 import '../../../design_system/tokens/app_spacing.dart';
 import '../../../design_system/tokens/app_typography.dart';
+import '../../menu/menu_repository.dart';
 import 'menu_admin_repository.dart';
 
 final _stationsForMenuProvider =
@@ -40,6 +41,7 @@ class _MenuAdminNotifier
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
         () => ref.read(menuAdminRepositoryProvider).getAll());
+    ref.read(menuItemsProvider.notifier).refresh();
   }
 
   Future<void> create(Map<String, dynamic> body) async {
